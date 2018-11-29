@@ -18,12 +18,15 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser('Visual semantic embeddings')
     parser.add_argument('--model_file', type=str,default = None)
     parser.add_argument('--train_csv_file', type=str)
+    parser.add_argument('--glove_embed_file',
+      default="/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt" , type=str)
     parser.add_argument('--length', type=int, default=None)
     args = parser.parse_args()
 
     KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
 
-    train_df =pd.DataFrame.from_csv(args.train_csv_file)
+    train_df =pd.read_csv(args.train_csv_file,encoding='utf8')
+    print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
     texts = train_df["image_captions"].values.tolist()
     tokenizer = Tokenizer(num_words=32198)
     tokenizer.fit_on_texts(texts)
@@ -33,7 +36,7 @@ if __name__ == '__main__':
     print('Found %s unique tokens.' % len(word_index))
 
     end2endmodel, vocab_map = \
-       concept_detector( args.model_file, input_length=args.length,data_vocab = word_index,token_count=len(word_index) )
+       concept_detector( args.model_file, args.glove_embed_file, input_length=args.length,data_vocab = word_index,token_count=len(word_index) )
 
     end2endmodel.compile(optimizer='nadam',loss="categorical_crossentropy")
     
