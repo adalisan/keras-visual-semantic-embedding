@@ -24,7 +24,7 @@ def encode_sentences(model, vocab_map, X, max_length=None,
 
     k = max_length - 1
     if verbose:
-        print k
+        print (k)
     numbatches = len(captions) / batch_size + 1
     for minibatch in range(0, len(captions), batch_size):
         caption = captions[minibatch:minibatch + batch_size]
