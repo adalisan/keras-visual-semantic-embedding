@@ -9,24 +9,24 @@ from tools import encode_sentences
 
 import pandas
 from translate import Translator
-
+import pdb
 
 def concept_detector(model_file,glove_file, input_length ,data_vocab ,token_count):
 
     image_encoder, sentence_encoder, vocab_map , image_feat_extractor = \
         build_pretrained_models(model_file, glove_file,input_length,data_vocab = data_vocab,token_count=token_count)
-    captioned_image_descriptor  = Concatenate(image_encoder,sentence_encoder)
+    captioned_image_descriptor  = Concatenate(axis=-1)(image_encoder.outputs[0],sentence_encoder.outputs[0])
 
     concept_detector_scores = Dense(num_classes )(captioned_image_descriptor)
     for enc in image_encoder, sentence_encoder:
         enc.compile(optimizer='nadam', loss='mse')
-    end_to_end_model = Model(inputs= [image_feat_extractor.inputs ,sentence_encoder.inputs], outputs = concept_detector)
+    end_to_end_model = Model(inputs= [image_feat_extractor.inputs[0] ,sentence_encoder.inputs[0]],
+                             outputs = concept_detector)
     return end_to_end_model,vocab_map
 
 
 
 def build_image_feat_extractor():
-
     return  VGG19(include_top=False, weights='imagenet', input_tensor=None, input_shape=None, pooling=None)
 
 def build_image_encoder(weights=None, input_dim=4096, embedding_dim=1024, normalize=True):
@@ -40,6 +40,18 @@ def build_image_encoder(weights=None, input_dim=4096, embedding_dim=1024, normal
     model = Model(input=input, output=x)
     return model
 
+def build_image_encoder_seq_api(weights=None, input_dim=4096, embedding_dim=1024, normalize=True):
+    model = Sequential()
+    
+    model.add(Dense(
+        embedding_dim,
+        weights=weights
+    ))
+    if normalize:
+        model.add(L2Normalize())
+    
+    return model
+
 
 def build_sentence_encoder(embedding_weights=None, gru_weights=None, input_length=None, vocab_dim=32198,
         vocab_embedding_dim=300, embedding_dim=1024, normalize=True, finetune_word_embedding=False):
@@ -47,7 +59,7 @@ def build_sentence_encoder(embedding_weights=None, gru_weights=None, input_lengt
     # I think it's because the original has a different masking scheme.
     model = Sequential([
         Embedding(
-            vocab_dim, vocab_embedding_dim, input_length=input_length,
+            input_dim=vocab_dim, output_dim= vocab_embedding_dim, input_length=input_length,
             weights=embedding_weights, mask_zero=True,   # TODO: masking isn't quite right,
             trainable = finetune_word_embedding
         ),
@@ -59,8 +71,12 @@ def build_sentence_encoder(embedding_weights=None, gru_weights=None, input_lengt
 
 
 def build_pretrained_models(model_filename, glove_file,input_length=None,data_vocab = None, token_count=None, normalize=True):
+    gru_weights= None
+    img_enc_weights = None
     if model_filename is not None:
-        img_enc_weights, embedding_weights, gru_weights, init_vocab_map = load_pretrained_parameters(model_filename)
+        img_enc_weights = load_pretrained_parameters(model_filename)
+        #, embedding_weights, gru_weights, init_vocab_map = 
+    
     glove_embedding_mat = None
     if token_count is None:
         print("assuming original dict pkl is available for pretrained model")
@@ -70,11 +86,12 @@ def build_pretrained_models(model_filename, glove_file,input_length=None,data_vo
     vocab_embed_dim = glove_embedding_mat.shape[1]
     image_feat_extractor = build_image_feat_extractor()
     image_encoder = build_image_encoder(weights=img_enc_weights, normalize=normalize)
-    
+    print(glove_embedding_mat.shape)
+    print(glove_embedding_mat[0,:])
     sentence_encoder = build_sentence_encoder(
-        embedding_weights=glove_embedding_mat,
+        embedding_weights=[glove_embedding_mat],
         gru_weights=gru_weights,
-        input_length=input_length, vocab_dim=token_count,
+        input_length=input_length, vocab_dim=token_count+1,
         vocab_embedding_dim=vocab_embed_dim,
         normalize=normalize)
     return image_encoder, sentence_encoder, data_vocab , image_feat_extractor
@@ -84,12 +101,17 @@ def load_pretrained_parameters(filename):
     '''Load up the pre-trained weights from the @ryankiros implementation.
     '''
     params = np.load(filename)
-    vocab_map = np.load('{}.dictionary.pkl'.format(filename))
+    
     # image encoder weights
     if params:
         img_enc_weights = [params['ff_image_W'], params['ff_image_b']]
     else:
         img_enc_weights = None
+    return img_enc_weights
+
+def load_pretrained_embedding_weights(filename):
+    params = np.load(filename)
+    vocab_map = np.load('{}.dictionary.pkl'.format(filename))
     # sentence encoder weights
     embedding_weights = [params['Wemb']]
     W_h = params['encoder_Wx']
@@ -108,6 +130,8 @@ def load_pretrained_parameters(filename):
 def compute_embedding_matrix(glove_file,word_index,vocab_embed_dim=None):
     embeddings_index = dict()
     f= open(glove_file,'r')
+    avg_embed_vec = None
+    num_embeds = 0
     for line in f:
         values = line.split(' ')
         word = values[0]
@@ -121,21 +145,35 @@ def compute_embedding_matrix(glove_file,word_index,vocab_embed_dim=None):
             print (line)
         vocab_embed_dim = len(values[1:])
         embeddings_index[word] = coefs
+        if avg_embed_vec is None:
+            avg_embed_vec = coefs.copy()
+            
+        else:
+            avg_embed_vec += coefs 
+        num_embeds +=1
+    avg_embed_vec = avg_embed_vec/num_embeds
     f.close()
     embedding_matrix = np.zeros((len(word_index) + 1, vocab_embed_dim))
     for word, i in word_index.items():
         embedding_vector = embeddings_index.get(word)
         if embedding_vector is not None:
             # words not found in embedding index will be all-zeros.
-            embedding_matrix[i] = embedding_vector
+            embedding_matrix[i,:] = embedding_vector
         else:
-            translator= Translator(to_lang="english")
-            translation = translator.translate(word)
-            print(word + u" not found in glove embedding. translating word to english in case foreign word")
-            print (translation)
-            embedding_vector = embeddings_index.get(translation)
-            if embedding_vector is not None:
-                embedding_matrix[i] = embedding_vector
-            
+            #translator= Translator(to_lang="english")
+            #translation = translator.translate(word)
+            #pdb.set_trace()
+            #print( u' %s not found in glove embedding. translating word to english in case foreign word' % word)
+            with open("oov.txt",'w', encoding="utf8") as fh:
+                fh.write("%s\n" % word)
+
+            embedding_matrix[i,:] = avg_embed_vec
+
+            #print (translation)
+            #pdb.set_trace()
+            # embedding_vector = embeddings_index.get(translation)
+            # if embedding_vector is not None:
+            #     embedding_matrix[i] = embedding_vector
+    embedding_matrix[-1,:] =avg_embed_vec
     return embedding_matrix,vocab_embed_dim
 
