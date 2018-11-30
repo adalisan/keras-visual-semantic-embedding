@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import os ,sys
+import argparse
 from models import encode_sentences
 from models import build_pretrained_models
 import pandas as pd
@@ -13,7 +15,7 @@ def mil_squared_error(y_true, y_pred):
 
 
 if __name__ == '__main__':
-    import argparse
+
 
     parser = argparse.ArgumentParser('Visual semantic embeddings')
     parser.add_argument('--model_file', type=str,default = None)
@@ -25,20 +27,27 @@ if __name__ == '__main__':
 
     KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
 
-    train_df =pd.read_csv(args.train_csv_file,encoding='utf8')
+    train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
     print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
     texts = train_df["image_captions"].values.tolist()
+    print (type(texts))
+    texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
+    print (type(texts_ascii))
     tokenizer = Tokenizer(num_words=32198)
-    tokenizer.fit_on_texts(texts)
-    sequences = tokenizer.texts_to_sequences(texts)
-
+    tokenizer.fit_on_texts(texts_ascii)
+    
+    print (type(texts[0]))
     word_index = tokenizer.word_index
+    print (type(word_index))
+    
+    #print (type(word_index.items()[0]))
     print('Found %s unique tokens.' % len(word_index))
 
     end2endmodel, vocab_map = \
-       concept_detector( args.model_file, args.glove_embed_file, input_length=args.length,data_vocab = word_index,token_count=len(word_index) )
+       concept_detector( args.model_file, args.glove_embed_file,
+                     input_length=args.length, data_vocab = word_index,token_count=len(word_index) )
 
-    end2endmodel.compile(optimizer='nadam',loss="categorical_crossentropy")
+    end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
     
 
     train_df =pd.read_csv(args.train_csv_file)
