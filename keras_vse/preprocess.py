@@ -67,7 +67,7 @@ def GI_download_ingest(KERAS_DATAGEN_DIR,
         "class" : [concept.strip('\"').strip("'") for i in img_paths]}
         keras_train_df = keras_train_df.append(pd.DataFrame(new_df_dict))
     print(keras_train_df.tail())
-    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/GI_keras_train.csv")
+    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/GI_keras_train.csv",encoding='utf8')
 
 
 
@@ -118,7 +118,7 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
         "image_captions": used_img_captions,
         "class" : img_classes}
         keras_train_df = keras_train_df.append(new_df_dict)
-    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv")
+    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv",encoding="utf8")
 
 def Google_conceptual_captions_ingest(image_caption_tsv, kfile):
     with open(kfile, 'r') as fh:
