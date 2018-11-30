@@ -2,7 +2,7 @@ import os
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator as IDG
 from keras.preprocessing.image import Iterator
-from keras.preprocessing.image import _list_valid_filenames_in_directory
+
 from keras.preprocessing.image import load_img
 from keras.preprocessing.image import img_to_array
 from keras.preprocessing.image import array_to_img
@@ -370,7 +370,63 @@ class DataFramewithMultiModalInputIterator(Iterator):
 
 
 
-        
+
+def _list_valid_filenames_in_directory(directory, white_list_formats, split,
+                                       class_indices, follow_links, df=False):
+    """Lists paths of files in `subdir` with extensions in `white_list_formats`.
+    # Arguments
+        directory: absolute path to a directory containing the files to list.
+            The directory name is used as class label
+            and must be a key of `class_indices`.
+        white_list_formats: set of strings containing allowed extensions for
+            the files to be counted.
+        split: tuple of floats (e.g. `(0.2, 0.6)`) to only take into
+            account a certain fraction of files in each directory.
+            E.g.: `segment=(0.6, 1.0)` would only account for last 40 percent
+            of images in each directory.
+        class_indices: dictionary mapping a class name to its index.
+        follow_links: boolean.
+        df: boolean
+    # Returns
+        classes: a list of class indices(returns only if `df=False`)
+        filenames: if `df=False`,returns the path of valid files in `directory`,
+            relative from `directory`'s parent (e.g., if `directory` is
+            "dataset", the filenames will be
+            `["dataset/class1/file1.jpg", "dataset/class1/file2.jpg", ...]`).
+            if `df=True`, returns the path of valid files in `directory`,
+            relative from `directory` (e.g., if `directory` is
+            "dataset", the filenames will be
+            `["class1/file1.jpg", "class1/file2.jpg", ...]`).
+    """
+    dirname = os.path.basename(directory)
+    if split:
+        num_files = len(list(
+            _iter_valid_files(directory, white_list_formats, follow_links)))
+        start, stop = int(split[0] * num_files), int(split[1] * num_files)
+        valid_files = list(
+            _iter_valid_files(
+                directory, white_list_formats, follow_links))[start: stop]
+    else:
+        valid_files = _iter_valid_files(
+            directory, white_list_formats, follow_links)
+    if df:
+        filenames = []
+        for root, fname in valid_files:
+            absolute_path = os.path.join(root, fname)
+            relative_path = os.path.relpath(absolute_path, directory)
+            filenames.append(relative_path)
+        return filenames
+    classes = []
+    filenames = []
+    for root, fname in valid_files:
+        classes.append(class_indices[dirname])
+        absolute_path = os.path.join(root, fname)
+        relative_path = os.path.join(
+            dirname, os.path.relpath(absolute_path, directory))
+        filenames.append(relative_path)
+
+    return classes, filenames
+
 
 
 
