@@ -23,6 +23,8 @@ if __name__ == '__main__':
     parser.add_argument('--glove_embed_file',
       default="/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt" , type=str)
     parser.add_argument('--length', type=int, default=None)
+    parser.add_argument('--maxtokencount', type=int, default=32198)
+    
     args = parser.parse_args()
 
     KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
@@ -30,10 +32,11 @@ if __name__ == '__main__':
     train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
     print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
     texts = train_df["image_captions"].values.tolist()
+    classnames = pd.unique(train_df["class"].values).tolist()
     print (type(texts))
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
     print (type(texts_ascii))
-    tokenizer = Tokenizer(num_words=32198)
+    tokenizer = Tokenizer(num_words=args.maxtokencount)
     tokenizer.fit_on_texts(texts_ascii)
     
     print (type(texts[0]))
@@ -45,7 +48,8 @@ if __name__ == '__main__':
 
     end2endmodel, vocab_map = \
        concept_detector( args.model_file, args.glove_embed_file,
-                     input_length=args.length, data_vocab = word_index,token_count=len(word_index) )
+                     input_length=args.length, data_vocab = word_index,token_count=len(word_index),
+                     num_classes= len(classnames) )
 
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
     
@@ -57,7 +61,7 @@ if __name__ == '__main__':
                             directory= KERAS_DATAGEN_DIR,
                             x_col=["filename","image_captions"], y_col="class", has_ext=True,
                             target_size=(256, 256), color_mode='rgb',
-                            classes=None, class_mode='categorical',
+                            classes=classnames, class_mode='categorical',
                             batch_size=32, shuffle=False, seed=None,
                             save_to_dir=None,
                             save_prefix='',
