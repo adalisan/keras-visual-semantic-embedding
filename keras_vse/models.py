@@ -91,8 +91,10 @@ def build_pretrained_models(model_filename, glove_file,input_length=None,data_vo
         #, embedding_weights, gru_weights, init_vocab_map = 
     
     glove_embedding_mat = None
+    #reading weights from original vse(@ryankiros) trained model (coco,flickr8k or flickr30k)
     if token_count is None:
         print("assuming original dict pkl is available for pretrained model")
+        embedding_weights, gru_weights, init_vocab_map =load_pretrained_embedding_weights(model_filename)
         token_count = len(init_vocab_map)
         glove_embedding_mat= embedding_weights
     glove_embedding_mat,_ = compute_embedding_matrix(glove_file,data_vocab,None)
@@ -139,7 +141,7 @@ def load_pretrained_embedding_weights(filename):
         W_r, U_r, b_r,
         W_h, U_h, b_h,
     ]
-    return img_enc_weights, embedding_weights, gru_weights, vocab_map
+    return embedding_weights, gru_weights, vocab_map
 
 def compute_embedding_matrix(glove_file,word_index,vocab_embed_dim=None):
     embeddings_index = dict()
