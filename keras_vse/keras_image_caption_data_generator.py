@@ -383,12 +383,13 @@ class DataFramewithMultiModalInputIterator(Iterator):
             batch_y = self.data[index_array]
         else:
             return batch_x
-        batch_z = np.zeros((len(batch_x), self.num_tokens),dtype= self.dtype)
+        batch_z = np.zeros((len(batch_x), self.num_tokens+1),dtype= self.dtype)
 
         for i, cap in enumerate([self.captions[j] for j in index_array]):
             img_cap_tokens = cap.strip().split()
             for z in img_cap_tokens:
-                batch_z[i,self.caption_token_vocab[z]] = 1.
+                token_idx = self.caption_token_vocab.get(z,self.num_tokens)
+                batch_z[i,token_idx] = 1.
 
         return [batch_x,batch_z], batch_y
     def _list_valid_filepaths(self, white_list_formats):
