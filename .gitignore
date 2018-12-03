@@ -8,3 +8,5 @@ vgg16_weights.h5
 venv
 MANIFEST
 dist/
+*.npz
+*.pkl
