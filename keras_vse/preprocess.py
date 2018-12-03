@@ -6,8 +6,13 @@ import csv
 import argparse
 from os.path import join as osp
 import pandas as pd
-from urllib.parse import urlparse as urlparse
-from visual_genome import api as vg
+try:
+   from urllib.parse import urlparse as urlparse
+except  ImportError:
+   import urlparse
+import visual_genome
+from visual_genome import api  as vg
+from visual_genome import local  as vg_local
 from os.path import exists as ose
 import numpy as np
 
@@ -92,11 +97,22 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
     #     for obj in objects:
     #         class_names = obj["synsets"]
 
-    keras_train_df = pds.DataFrame({"filenames":np.array(dtype="<U2"),
-                                    "image_captions":np.array(dtype="<U2"),
-                                    "class":np.array(dtype="<U2")})
-    image_ids = vg.get_all_imageids()
-    for img_id in image_ids:
+    keras_train_df = pd.DataFrame(data=dict({"filenames":np.array([],dtype="<U2"),
+                                    "image_captions":np.array([],dtype="<U2"),
+                                    "class":np.array([],dtype="<U2")}))
+    print("saving scen graphs")
+    vg_local.save_scene_graphs_by_id(data_dir=data_dir+'/' ,image_data_dir='{}/by-id/'.format(data_dir))
+    print("loading scene graphs by image id")
+  # Load scene graphs in 'data/by-id', from index 0 to 200.
+  # We'll only keep scene graphs with at least 1 relationship.
+    image_ids = vg.get_all_image_ids()
+    print("got all image ids")
+    print ("There are {} images in VG dataset".format(len(image_ids)))
+    for img_it,img_id in enumerate(image_ids):
+        scene_graphs = vg_local.get_scene_graphs(start_index=img_id, end_index=img_id+1, min_rels=1,
+                                    data_dir=data_dir+'/', image_data_dir='{}/by-id/'.format(data_dir))
+        if img_it % 1000 == 0 :
+            print("{}th image and captions added to dataframe".format(img_it))
         scenegraph = vg.get_scene_graph_of_image(id=img_id)
         regions = vg.get_region_descriptions_of_image(id=img_id)
         #select the first relationship at random
