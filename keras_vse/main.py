@@ -41,9 +41,6 @@ if __name__ == '__main__':
     
     print (type(texts[0]))
     word_index = tokenizer.word_index
-    print (type(word_index))
-    
-    #print (type(word_index.items()[0]))
     print('Found %s unique tokens.' % len(word_index))
 
     end2endmodel, vocab_map = \
@@ -70,7 +67,7 @@ if __name__ == '__main__':
                             subset=None,
                             interpolation='nearest',
                             sort=False,
-                            cap_token_vocab=None,
+                            cap_token_vocab=word_index,
                             num_tokens = len(word_index),
                             follow_links= True)
     end2endmodel.fit_generator(train_data_it)
