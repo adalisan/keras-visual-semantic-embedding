@@ -6,7 +6,7 @@ from keras.models import Model, Sequential
 from keras.applications.vgg19 import VGG19
 from layers import L2Normalize
 from keras.utils import plot_model
-
+from keras import __version__ as keras_ver
 from tools import encode_sentences
 
 import pandas
@@ -18,6 +18,12 @@ except ImportError:
     import pickle
 
 import h5py
+
+# def ModelwithMetadata(Model):
+#     def __init__(self,metadata_json=None):
+#         super(ModelwithMetadata,self).__init__(name='KerasModelwithMetadata'))
+#     def save()
+#         ModelwithMetadata
 
 def concept_detector(model_file,glove_file, input_length ,data_vocab ,token_count,num_classes):
 
@@ -102,8 +108,9 @@ def build_pretrained_models(model_filename, glove_file,input_length=None,data_vo
     
 
     image_encoder,image_feat_extractor = build_image_encoder(weights=img_enc_weights,  embedding_dim=1024, normalize=normalize)
+    print ("Word Embedding matrix shape")
     print(glove_embedding_mat.shape)
-    print(glove_embedding_mat[0,:])
+    #print(glove_embedding_mat[10,:])
     sentence_encoder = build_sentence_encoder(
         embedding_weights=[glove_embedding_mat],
         gru_weights=gru_weights,
@@ -146,10 +153,12 @@ def load_pretrained_embedding_weights(filename):
 def compute_embedding_matrix(glove_file,word_index,vocab_embed_dim=None):
     embeddings_index = dict()
     vocab_embed_dim = 0
+    avg_embed_vec = None
     if glove_file.endswith('pkl') :
         num_embeds = 0
         avg_embed_vec = None
         embeddings_index=pickle.load(open(glove_file,'rb'))
+        #print (embeddings_index.keys())
         for _,avec in embeddings_index.items():
             vocab_embed_dim  = avec.size
             if avg_embed_vec is None:
@@ -200,9 +209,6 @@ def compute_embedding_matrix(glove_file,word_index,vocab_embed_dim=None):
             for word, i in word_index.items():
                 embed_dict[word] = coefs
             embed_dict["avg_word_vector"] = avg_embed_vec
-        
-        
-    vocab_embed_dim
     embedding_matrix = np.zeros((len(word_index) + 1, vocab_embed_dim))
     for word, i in word_index.items():
         embedding_vector = embeddings_index.get(word)
