@@ -71,6 +71,7 @@ if __name__ == '__main__':
                             interpolation='nearest',
                             sort=False,
                             cap_token_vocab=None,
-                            num_tokens = len(word_index))
+                            num_tokens = len(word_index),
+                            follow_links= True)
     end2endmodel.fit_generator(train_data_it)
     

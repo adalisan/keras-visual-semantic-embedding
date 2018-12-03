@@ -26,7 +26,9 @@ class MultimodalInputDataGenerator(IDG):
                             save_format='png',
                             subset=None,
                             interpolation='nearest',
-                            sort=True,**kwargs):
+                            sort=True,
+                            follow_links=True,
+                            **kwargs):
             """Takes the dataframe and the path to a directory
          and generates batches of augmented/normalized data.
         # A simple tutorial can be found at: http://bit.ly/keras_flow_from_dataframe
@@ -108,6 +110,7 @@ class MultimodalInputDataGenerator(IDG):
                                  interpolation=interpolation,
                                  sort=sort,
                                  drop_duplicates=False,
+                                 follow_links= follow_links,
                                  **kwargs)
 
 
@@ -226,6 +229,8 @@ class DataFramewithMultiModalInputIterator(Iterator):
         self.num_tokens = num_tokens
         self.caption_token_vocab = cap_token_vocab
         self.directory = directory
+
+        
         self.classes = classes
         if class_mode not in {'categorical', 'binary', 'sparse',
                                 'input', 'other', None}:
@@ -318,7 +323,10 @@ class DataFramewithMultiModalInputIterator(Iterator):
                     (self.samples, self.num_classes))
         else:
             print('Found %d images.' % self.samples)
-
+        self.captions= self.df[x_cols[1]]
+        print ("first caption")
+        print (self.captions[0])
+        print(type(self.captions))
         super(DataFramewithMultiModalInputIterator, self).__init__(self.samples,
                                                 batch_size,
                                                 shuffle,
@@ -378,9 +386,9 @@ class DataFramewithMultiModalInputIterator(Iterator):
         batch_z = np.zeros((len(batch_x), self.num_tokens),dtype= self.dtype)
 
         for i, cap in enumerate([self.captions[j] for j in index_array]):
-            img_cap_tokens = cap.split(' ')
+            img_cap_tokens = cap.strip().split()
             for z in img_cap_tokens:
-                batch_z[i,self.token_lut[z]] = 1.
+                batch_z[i,self.caption_token_vocab[z]] = 1.
 
         return [batch_x,batch_z], batch_y
     def _list_valid_filepaths(self, white_list_formats):
