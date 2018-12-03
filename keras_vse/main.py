@@ -48,7 +48,8 @@ if __name__ == '__main__':
 
     end2endmodel, vocab_map = \
        concept_detector( args.model_file, args.glove_embed_file,
-                     input_length=args.length, data_vocab = word_index,token_count=len(word_index),
+                     input_length=args.length, data_vocab = word_index,
+                     token_count=len(word_index),
                      num_classes= len(classnames) )
 
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
@@ -58,8 +59,8 @@ if __name__ == '__main__':
     train_datagen = datagen()
     train_data_it = train_datagen.flow_from_dataframe( 
                             dataframe= train_df,
-                            directory= KERAS_DATAGEN_DIR,
-                            x_col=["filename","image_captions"], y_col="class", has_ext=True,
+                            directory= None,
+                            x_col=["filenames","image_captions"], y_col="class", has_ext=True,
                             target_size=(256, 256), color_mode='rgb',
                             classes=classnames, class_mode='categorical',
                             batch_size=32, shuffle=False, seed=None,
@@ -68,6 +69,8 @@ if __name__ == '__main__':
                             save_format='png',
                             subset=None,
                             interpolation='nearest',
-                            sort=False)
+                            sort=False,
+                            cap_token_vocab=None,
+                            num_tokens = len(word_index))
     end2endmodel.fit_generator(train_data_it)
     

@@ -6,7 +6,7 @@ from keras.preprocessing.image import Iterator
 from keras.preprocessing.image import load_img
 from keras.preprocessing.image import img_to_array
 from keras.preprocessing.image import array_to_img
-
+import warnings
 
 
 class MultimodalInputDataGenerator(IDG):
@@ -26,7 +26,7 @@ class MultimodalInputDataGenerator(IDG):
                             save_format='png',
                             subset=None,
                             interpolation='nearest',
-                            sort=True):
+                            sort=True,**kwargs):
             """Takes the dataframe and the path to a directory
          and generates batches of augmented/normalized data.
         # A simple tutorial can be found at: http://bit.ly/keras_flow_from_dataframe
@@ -107,7 +107,8 @@ class MultimodalInputDataGenerator(IDG):
                                  subset=subset,
                                  interpolation=interpolation,
                                  sort=sort,
-                                 drop_duplicates=False)
+                                 drop_duplicates=False,
+                                 **kwargs)
 
 
 class DataFramewithMultiModalInputIterator(Iterator):
@@ -182,9 +183,23 @@ class DataFramewithMultiModalInputIterator(Iterator):
             interpolation='nearest',
             dtype='float32',
             sort=True,
-            drop_duplicates=True):
-        super(DataFramewithMultiModalInputIterator, self).common_init(image_data_generator,
-                                                    target_size,
+            drop_duplicates=True,
+            cap_token_vocab=None,
+            num_tokens=None):
+        
+        
+        try:
+            super(DataFramewithMultiModalInputIterator, self).common_init(image_data_generator,
+                                                        target_size,
+                                                        color_mode,
+                                                        data_format,
+                                                        save_to_dir,
+                                                        save_prefix,
+                                                        save_format,
+                                                        subset,
+                                                        interpolation)
+        except AttributeError:
+            super().common_init(image_data_generator,      target_size,
                                                     color_mode,
                                                     data_format,
                                                     save_to_dir,
@@ -208,7 +223,8 @@ class DataFramewithMultiModalInputIterator(Iterator):
         self.x_all_cols = x_cols
         for col in x_cols:
             self.df[col] = self.df[col].astype(str)
-        
+        self.num_tokens = num_tokens
+        self.caption_token_vocab = cap_token_vocab
         self.directory = directory
         self.classes = classes
         if class_mode not in {'categorical', 'binary', 'sparse',
@@ -367,9 +383,46 @@ class DataFramewithMultiModalInputIterator(Iterator):
                 batch_z[i,self.token_lut[z]] = 1.
 
         return [batch_x,batch_z], batch_y
+    def _list_valid_filepaths(self, white_list_formats):
+
+        def get_ext(filename):
+            return os.path.splitext(filename)[1][1:].lower()
+
+        df_paths = self.df[self.x_col]
+
+        format_check = df_paths.map(get_ext).isin(white_list_formats)
+        existence_check = df_paths.map(os.path.isfile)
+
+        valid_filepaths = list(df_paths[np.logical_and(format_check,
+                                                       existence_check)])
+
+        return valid_filepaths
 
 
+def _iter_valid_files(directory, white_list_formats, follow_links):
+    """Iterates on files with extension in `white_list_formats` contained in `directory`.
+    # Arguments
+        directory: Absolute path to the directory
+            containing files to be counted
+        white_list_formats: Set of strings containing allowed extensions for
+            the files to be counted.
+        follow_links: Boolean.
+    # Yields
+        Tuple of (root, filename) with extension in `white_list_formats`.
+    """
+    def _recursive_list(subpath):
+        return sorted(os.walk(subpath, followlinks=follow_links),
+                      key=lambda x: x[0])
 
+    for root, _, files in _recursive_list(directory):
+        for fname in sorted(files):
+            for extension in white_list_formats:
+                if fname.lower().endswith('.tiff'):
+                    warnings.warn('Using \'.tiff\' files with multiple bands '
+                                  'will cause distortion. '
+                                  'Please verify your output.')
+                if fname.lower().endswith('.' + extension):
+                    yield root, fname
 
 def _list_valid_filenames_in_directory(directory, white_list_formats, split,
                                        class_indices, follow_links, df=False):
