@@ -297,7 +297,7 @@ class DataFramewithMultiModalInputIterator(Iterator):
                 except (IOError,SyntaxError,ValueError) as e:
                     print ('Bad file:' + str(imgpath))
                     valid_image[df_i] = False
-            with os.open("invalid_image_list.txt") as fh:
+            with open("invalid_image_list.txt",'w') as fh:
                 for imgpath in self.df.loc[valid_image,][x_cols[0]]:
                     fh.write(imgpath+"\n")
 
@@ -340,7 +340,7 @@ class DataFramewithMultiModalInputIterator(Iterator):
                     (self.samples, self.num_classes))
         else:
             print('Found %d images.' % self.samples)
-        self.captions= self.df[x_cols[1]]
+        self.captions= list(self.df[x_cols[1]])
         print ("first caption")
         print (self.captions[0])
         print(type(self.captions))
