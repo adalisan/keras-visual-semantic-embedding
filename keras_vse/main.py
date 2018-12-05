@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+#encoding: utf-8
 import os ,sys
 import argparse
 from models import encode_sentences
@@ -50,7 +51,7 @@ if __name__ == '__main__':
                      num_classes= len(classnames) )
 
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
-    
+
 
     train_df =pd.read_csv(args.train_csv_file)
     train_datagen = datagen()
@@ -71,6 +72,6 @@ if __name__ == '__main__':
                             num_tokens = len(word_index),
                             follow_links= True)
     end2endmodel.fit_generator(train_data_it)
-    train_file_id =os.path.basename(train_csv_file)
+    train_file_id =os.path.basename(args.train_csv_file)
     train_file_id = os.path.splitext(train_file_id)[0]
     end2endmodel.save("{}_keras_vse_model.h5".format(train_file_id))
