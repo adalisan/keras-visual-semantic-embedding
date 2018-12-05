@@ -1,3 +1,4 @@
+#encoding: utf-8
 import os
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator as IDG
@@ -6,6 +7,8 @@ from keras.preprocessing.image import Iterator
 from keras.preprocessing.image import load_img
 from keras.preprocessing.image import img_to_array
 from keras.preprocessing.image import array_to_img
+
+from PIL import Image
 import warnings
 
 
@@ -221,7 +224,7 @@ class DataFramewithMultiModalInputIterator(Iterator):
                                 " x_col has extensions,else False.")
         self.df = dataframe.copy()
         if drop_duplicates:
-            self.df.drop_duplicates(x_cols[0], inplace=True)
+            self.df.drop_duplicates(subset=[x_cols[0],y_col], inplace=True)
         self.x_col = x_cols[0]
         self.x_all_cols = x_cols
         for col in x_cols:
@@ -284,6 +287,23 @@ class DataFramewithMultiModalInputIterator(Iterator):
                 raise ValueError('has_ext is set to True but'
                                     ' extension not found in x_col')
             self.df = self.df[self.df[x_cols[0]].isin(filenames)]
+            valid_image = np.full(self.df.shape[0],True)
+            for df_i, imgpath in enumerate(self.df[x_cols[0]]):
+                if df_i % 1000 == 0:
+                    print("{}th image checked for file integrity".format(df_i))
+                try:
+                    img = Image.open(imgpath)
+                    img.verify()
+                except (IOError,SyntaxError,ValueError) as e:
+                    print ('Bad file:' + str(imgpath))
+                    valid_image[df_i] = False
+            with os.open("invalid_image_list.txt") as fh:
+                for imgpath in self.df.loc[valid_image,][x_cols[0]]:
+                    fh.write(imgpath+"\n")
+
+            self.df = self.df.loc[valid_image,]
+
+
             if sort:
                 self.df.sort_values(by=x_cols[0], inplace=True)
             self.filenames = list(self.df[x_cols[0]])
@@ -314,9 +334,6 @@ class DataFramewithMultiModalInputIterator(Iterator):
             if "object" in list(self.df[y_col].dtypes):
                 raise TypeError("y_col column/s must be numeric datatypes.")
         
-
-
-
         self.samples = len(self.filenames)
         if self.num_classes > 0:
             print('Found %d images belonging to %d classes.' %
