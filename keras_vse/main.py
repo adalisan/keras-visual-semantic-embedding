@@ -39,6 +39,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     verbose =args.verbose
+    K.set_floatx('float16')
     KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
     gpu_id = 1
     gpu_id_str = str(int(gpu_id)) 
@@ -50,6 +51,16 @@ if __name__ == '__main__':
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = gpu_id_str
+    def check_gpu_availability():
+      print ("checking if gpus  are available and seen by keras/tf")
+      from tensorflow.python.client import device_lib
+      assert 'GPU' in str(device_lib.list_local_devices())
+
+      # confirm Keras sees the GPU
+  
+      assert len(K.tensorflow_backend._get_available_gpus()) > 0
+
+    #check_gpu_availability()
     #session = tf.Session(config=config)
     set_session(tf.Session(config=config))
     train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
@@ -119,3 +130,4 @@ if __name__ == '__main__':
     train_file_id =os.path.basename(args.train_csv_file)
     train_file_id = os.path.splitext(train_file_id)[0]
     end2endmodel.save("{}_keras_vse_model.h5".format(train_file_id))
+
