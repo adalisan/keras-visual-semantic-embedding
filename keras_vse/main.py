@@ -53,9 +53,24 @@ if __name__ == '__main__':
     train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
     print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
     texts = train_df["image_captions"].values.tolist()
-    classnames = pd.unique(train_df["class"].values).tolist()
-    print(train_df["class"].value_counts())
-    train_df["class"].value_counts().to_csv("class_counts.csv")
+    class_names_pd =  pd.unique(train_df["class"].values)
+    init_classnames =class_names_pd.tolist()
+    
+    class_counts = train_df["class"].value_counts()
+    class_counts.to_csv("class_counts.csv")
+    class_ct_threshold = 50
+    
+    untrainable_classes    = class_counts < class_ct_threshold 
+    untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
+    print(untrainable_classnames)
+    train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
+    classnames= [k for k in init_classnames if k not in untrainable_classnames] 
+
+    print (len(classnames))
+    print(train_df.shape)
+    new_class_counts = train_df["class"].value_counts()
+    print(new_class_counts)
+    new_class_counts.to_csv("class_counts.csv")
     print (type(texts))
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
     print (type(texts_ascii))
