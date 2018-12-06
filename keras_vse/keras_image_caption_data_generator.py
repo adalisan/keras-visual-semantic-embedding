@@ -297,8 +297,9 @@ class DataFramewithMultiModalInputIterator(Iterator):
                 except (IOError,SyntaxError,ValueError) as e:
                     print ('Bad file:' + str(imgpath))
                     valid_image[df_i] = False
+            invalid_image = np.logical_not(valid_image)
             with open("invalid_image_list.txt",'w') as fh:
-                for imgpath in self.df.loc[valid_image,][x_cols[0]]:
+                for imgpath in self.df.loc[invalid_image,][x_cols[0]]:
                     fh.write(imgpath+"\n")
 
             self.df = self.df.loc[valid_image,]
