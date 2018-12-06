@@ -31,13 +31,14 @@ if __name__ == '__main__':
     parser.add_argument('--glove_embed_file',
       default="/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt" , type=str)
     parser.add_argument('--length', type=int, default=None)
+    parser.add_argument('--dataaug', default=False,  action="store_true")
     parser.add_argument('--maxtokencount', type=int, default=32198)
     parser.add_argument('--fix_gpu', type=int, default=-1)
     
     args = parser.parse_args()
 
     KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
-    gpu_id = 3
+    gpu_id = 1
     gpu_id_str = str(int(gpu_id)) 
     if args.fix_gpu >= 0:
         print ("Overwriting gpu id from cfg file with given arg {}".format(args.fix_gpu))
@@ -53,6 +54,8 @@ if __name__ == '__main__':
     print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
     texts = train_df["image_captions"].values.tolist()
     classnames = pd.unique(train_df["class"].values).tolist()
+    print(train_df["class"].value_counts())
+    train_df["class"].value_counts().to_csv("class_counts.csv")
     print (type(texts))
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
     print (type(texts_ascii))
@@ -72,8 +75,12 @@ if __name__ == '__main__':
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
 
 
-    train_df =pd.read_csv(args.train_csv_file)
-    train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+    train_df = pd.read_csv(args.train_csv_file)
+    train_datagen = None
+    if args.dataaug:
+      train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+    else:
+      train_datagen = datagen()
     train_data_it = train_datagen.flow_from_dataframe( 
                             dataframe= train_df,
                             directory= None,
