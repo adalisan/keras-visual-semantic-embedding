@@ -289,7 +289,7 @@ class DataFramewithMultiModalInputIterator(Iterator):
             self.df = self.df[self.df[x_cols[0]].isin(filenames)]
             valid_image = np.full(self.df.shape[0],True)
             for df_i, imgpath in enumerate(self.df[x_cols[0]]):
-                if df_i % 1000 == 0:
+                if df_i % 10000 == 0:
                     print("{}th image checked for file integrity".format(df_i))
                 try:
                     img = Image.open(imgpath)

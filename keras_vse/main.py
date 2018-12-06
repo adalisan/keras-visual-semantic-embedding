@@ -34,9 +34,11 @@ if __name__ == '__main__':
     parser.add_argument('--dataaug', default=False,  action="store_true")
     parser.add_argument('--maxtokencount', type=int, default=32198)
     parser.add_argument('--fix_gpu', type=int, default=-1)
+    parser.add_argument('--verbose', default=False,  action="store_true")
     
     args = parser.parse_args()
 
+    verbose =args.verbose
     KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
     gpu_id = 1
     gpu_id_str = str(int(gpu_id)) 
@@ -51,7 +53,8 @@ if __name__ == '__main__':
     #session = tf.Session(config=config)
     set_session(tf.Session(config=config))
     train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
-    print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
+    if verbose:
+      print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
     texts = train_df["image_captions"].values.tolist()
     class_names_pd =  pd.unique(train_df["class"].values)
     init_classnames =class_names_pd.tolist()
@@ -62,18 +65,20 @@ if __name__ == '__main__':
     
     untrainable_classes    = class_counts < class_ct_threshold 
     untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
-    print(untrainable_classnames)
+    if verbose:
+      print(untrainable_classnames)
+      print (len(train_df))
     train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
+    print ("new examplar count {}".format(len(train_df)))
     classnames= [k for k in init_classnames if k not in untrainable_classnames] 
-
-    print (len(classnames))
-    print(train_df.shape)
+    if verbose:
+      print("Num of classes ")
+      print (len(classnames))
+      print("Dimensions of training set dataframe")
+      print(train_df.shape)
     new_class_counts = train_df["class"].value_counts()
-    print(new_class_counts)
     new_class_counts.to_csv("class_counts.csv")
-    print (type(texts))
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
-    print (type(texts_ascii))
     tokenizer = Tokenizer(num_words=args.maxtokencount)
     tokenizer.fit_on_texts(texts_ascii)
     
@@ -84,13 +89,11 @@ if __name__ == '__main__':
     end2endmodel, vocab_map = \
        concept_detector( args.model_file, args.glove_embed_file,
                      input_length=args.length, data_vocab = word_index,
-                     token_count=len(word_index),
+                     token_count = len(word_index),
                      num_classes= len(classnames) )
 
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
 
-
-    train_df = pd.read_csv(args.train_csv_file)
     train_datagen = None
     if args.dataaug:
       train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
