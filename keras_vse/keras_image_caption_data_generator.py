@@ -361,7 +361,22 @@ class DataFramewithMultiModalInputIterator(Iterator):
                 img_path = os.path.join(self.directory, fname)
             else:
                 img_path = fname
-            img = load_img(img_path,
+            try:
+                img = load_img(img_path,
+                           color_mode=self.color_mode,
+                           target_size=self.target_size,
+                           interpolation=self.interpolation)
+            except Exception as e:
+                print ("{} cannot be loaded. Remove from dataset ".format(img_path))
+                if i>0:
+                    fname_alt =self.filenames[index_array[i-1]]
+                else:
+                    fname_alt =self.filenames[index_array[i+1]]
+                if self.directory is not None:
+                    img_path = os.path.join(self.directory, fname_alt)
+                else:
+                    img_path = fname_alt
+                img = load_img(img_path,
                            color_mode=self.color_mode,
                            target_size=self.target_size,
                            interpolation=self.interpolation)
