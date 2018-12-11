@@ -41,6 +41,13 @@ if __name__ == '__main__':
     verbose =args.verbose
     K.set_floatx('float16')
     KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
+    regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links(.*)'
+    LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared"
+    replace_regex_exp = r'/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared\1'
+    # try:
+    #   copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+
+
     gpu_id = 1
     gpu_id_str = str(int(gpu_id)) 
     if args.fix_gpu >= 0:
@@ -80,6 +87,7 @@ if __name__ == '__main__':
       print(untrainable_classnames)
       print (len(train_df))
     train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
+    train_df =train_df.replace(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR,regex= True)
     print ("new examplar count {}".format(len(train_df)))
     classnames= [k for k in init_classnames if k not in untrainable_classnames] 
     if verbose:
@@ -89,6 +97,8 @@ if __name__ == '__main__':
       print(train_df.shape)
     new_class_counts = train_df["class"].value_counts()
     new_class_counts.to_csv("class_counts.csv")
+
+
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
     tokenizer = Tokenizer(num_words=args.maxtokencount)
     tokenizer.fit_on_texts(texts_ascii)
