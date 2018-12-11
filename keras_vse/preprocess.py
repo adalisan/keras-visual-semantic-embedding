@@ -6,6 +6,9 @@ import csv
 import argparse
 from os.path import join as osp
 import pandas as pd
+import six
+from PIL import Image
+import codecs
 try:
    from urllib.parse import urlparse as urlparse
 except  ImportError:
@@ -22,6 +25,35 @@ image_dict = {}
 image_caption_dict ={}
 image_concept_dict={}
 concept_image_dict = {}
+def GI_download_verify_images():
+    
+    with open(osp(GI_staging_dir,fpath_dict_json),'r') as fp:
+        img_paths_to_hash=json.load(fp)
+    with open(osp(GI_staging_dir,img_caption_dict_json),'r') as fp:
+        img_captions_dict=json.load(fp)
+    with open(osp(GI_staging_dir,img_class_json),'r') as fp:
+        img_concepts_dict=json.load(fp)
+    with open(osp(GI_staging_dir,img_class_to_img_fpath_json),'r') as fp:
+        img_concept_examplar_dict=json.load(fp)
+
+   
+    img_paths_to_hash = dict((k,v) for k,v in six.iteritems(img_paths_to_hash) if v not in delete_from_dataset)
+    img_captions_dict = dict( (k,v) for k,v in six.iteritems(img_captions_dict) if k not in delete_from_dataset)
+    img_concepts_dict = dict( (k,v) for k,v in six.iteritems(img_concepts_dict) if k not in delete_from_dataset)
+    img_concept_examplar_dict = dict( (k,v) for k,v in six.iteritems(img_concepts_dict) if k not in delete_from_dataset)
+
+
+    with codecs.open("GI_Rus_Ven_concept_img_lut.json",'w',encoding='utf8') as fp:
+        json.dump(file_concept_dict, fp,ensure_ascii=False)
+    with codecs.open("GI_Rus_Ven_img_hash_img_fpath_lut.json",'w',encoding='utf8') as fp:
+        json.dump(img_paths_to_hash, fp,ensure_ascii=False)
+    with codecs.open("GI_Rus_Ven_img_hash_concept_lut.json",'w',encoding='utf8') as fp:
+        json.dump(class_lut, fp,ensure_ascii=False)
+    with codecs.open("GI_Rus_Ven_img_miss_img.json",'w',encoding='utf8') as fp:
+        json.dump(unk_img,fp,ensure_ascii=False)
+    with codecs.open("GI_Rus_Ven_img_desc_cap_lut.json","w",encoding='utf8') as fp:
+        json.dump(image_descriptions,fp,ensure_ascii=False)
+
 
 def GI_download_ingest(KERAS_DATAGEN_DIR,
                         GI_staging_dir = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario",
@@ -77,7 +109,7 @@ def GI_download_ingest(KERAS_DATAGEN_DIR,
 
 
 def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData",
-                        image_data_dir =  "/nfs/mercury-11/u116/projects/AIDA/VisualGenomeData/image_data" ):
+                        image_data_dir =  "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data" ):
     # with open(osp(data_dir,"relationships.json"),'r') as fp:
     #     relations=json.load(fp)
     # with open(osp(data_dir,"relationship_synsets.json"),'r') as fp:
@@ -105,8 +137,13 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
     print("loading scene graphs by image id")
   # Load scene graphs in 'data/by-id', from index 0 to 200.
   # We'll only keep scene graphs with at least 1 relationship.
-    image_ids = vg.get_all_image_ids()
+    #image_ids = vg.get_all_image_ids()
     print("got all image ids")
+    #all_image_data = vg_local.get_all_image_data(data_dir=data_dir)
+    image_data_file = osp(data_dir,'image_data.json')
+    image_data_dict = json.load(open(image_data_file))
+    all_image_data_dict =  dict((k['image_id'], k['url']) for k in image_data_dict )
+    image_ids = all_image_data_dict.keys()
     print ("There are {} images in VG dataset".format(len(image_ids)))
     for img_it,img_id in enumerate(image_ids):
         scene_graphs = vg_local.get_scene_graphs(start_index=img_id, end_index=img_id+1, min_rels=1,
@@ -121,8 +158,8 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
         img_classes =  scenegraph.objects
         num_of_multilabels = len(img_classes)
         
-        image = vg.GetImageData(id=image_id)
-        z = urlparse( image.url)
+        
+        z = urlparse( all_image_data_dict[image_id])
         _,subdir,filename = z.path.rsplit('/',maxsplit=2)
         img_path = osp(image_data_dir,subdir,filename)
         if len(img_captions)>num_of_multilabels:
