@@ -10,7 +10,7 @@ from keras import __version__ as keras_ver
 from tools import encode_sentences
 
 import pandas
-from translate import Translator
+# from translate import Translator
 import pdb
 try:
     import cPickle as pickle
@@ -25,11 +25,30 @@ import h5py
 #     def save()
 #         ModelwithMetadata
 
-def concept_detector(model_file,glove_file, input_length ,data_vocab ,token_count,num_classes):
+def concept_detector(model_file,glove_file, input_length ,data_vocab ,token_count,num_classes, 
+                     image_only_model =False):
 
+        
+        #, embedding_weights, gru_weights, init_vocab_map = 
+    if image_only_model:
+        vocab_map = None
+        img_enc_weights = None
+        if model_file is not None:
+            img_enc_weights = load_pretrained_parameters(model_file)
+        image_encoder,image_feat_extractor = build_image_encoder(weights=img_enc_weights,  
+                                                                 embedding_dim=1024, normalize=True)
+        concept_detector_scores = Dense(num_classes )(image_encoder)
+        image_encoder.compile(optimizer='nadam', loss='mse')
+        end_to_end_model = Model(inputs= [image_feat_extractor.inputs[0] ],
+                             outputs = concept_detector_scores)
+        plot_model(end_to_end_model, to_file='model.png')
+        return end_to_end_model,vocab_map
+    
     image_encoder, sentence_encoder, vocab_map , image_feat_extractor = \
-        build_pretrained_models(model_file, glove_file,input_length,data_vocab = data_vocab,token_count=token_count)
-    captioned_image_descriptor  = Concatenate(axis=-1)([image_encoder.outputs[0],sentence_encoder.outputs[0]])
+        build_pretrained_models(model_file, glove_file,input_length,
+                                data_vocab = data_vocab,token_count=token_count)
+    captioned_image_descriptor  = Concatenate(axis=-1)([image_encoder.outputs[0],
+                                                        sentence_encoder.outputs[0]])
 
     concept_detector_scores = Dense(num_classes )(captioned_image_descriptor)
     for enc in image_encoder, sentence_encoder:
@@ -88,7 +107,8 @@ def build_sentence_encoder(embedding_weights=None, gru_weights=None, input_lengt
     return model
 
 
-def build_pretrained_models(model_filename, glove_file,input_length=None,data_vocab = None, token_count=None, normalize=True):
+def build_pretrained_models(model_filename, glove_file,input_length=None,data_vocab = None,
+                             token_count=None, normalize=True):
     gru_weights= None
     img_enc_weights = None
     
@@ -107,7 +127,8 @@ def build_pretrained_models(model_filename, glove_file,input_length=None,data_vo
     vocab_embed_dim = glove_embedding_mat.shape[1]
     
 
-    image_encoder,image_feat_extractor = build_image_encoder(weights=img_enc_weights,  embedding_dim=1024, normalize=normalize)
+    image_encoder,image_feat_extractor = build_image_encoder(weights=img_enc_weights, 
+                                                             embedding_dim=1024, normalize=normalize)
     print ("Word Embedding matrix shape")
     print(glove_embedding_mat.shape)
     #print(glove_embedding_mat[10,:])

@@ -8,6 +8,7 @@ import pandas as pd
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras_image_caption_data_generator import MultimodalInputDataGenerator as datagen
+from keras.preprocessing.image import ImageDataGenerator as IDG
 from models import concept_detector
 from keras import backend  as K
 
@@ -33,8 +34,10 @@ if __name__ == '__main__':
     parser.add_argument('--length', type=int, default=None)
     parser.add_argument('--dataaug', default=False,  action="store_true")
     parser.add_argument('--maxtokencount', type=int, default=32198)
+    parser.add_argument('--epoch', type=int, default=1)
     parser.add_argument('--fix_gpu', type=int, default=-1)
     parser.add_argument('--verbose', default=False,  action="store_true")
+    parser.add_argument('--image_only_model', default=False,  action="store_true")
     
     args = parser.parse_args()
 
@@ -59,13 +62,13 @@ if __name__ == '__main__':
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = gpu_id_str
     def check_gpu_availability():
-      print ("checking if gpus  are available and seen by keras/tf")
-      from tensorflow.python.client import device_lib
-      assert 'GPU' in str(device_lib.list_local_devices())
+        print ("checking if gpus  are available and seen by keras/tf")
+        from tensorflow.python.client import device_lib
+        assert 'GPU' in str(device_lib.list_local_devices())
 
-      # confirm Keras sees the GPU
-  
-      assert len(K.tensorflow_backend._get_available_gpus()) > 0
+        # confirm Keras sees the GPU
+    
+        assert len(K.tensorflow_backend._get_available_gpus()) > 0
 
     #check_gpu_availability()
     #session = tf.Session(config=config)
@@ -111,33 +114,61 @@ if __name__ == '__main__':
        concept_detector( args.model_file, args.glove_embed_file,
                      input_length=args.length, data_vocab = word_index,
                      token_count = len(word_index),
-                     num_classes= len(classnames) )
+                     num_classes= len(classnames),
+                     image_only_model =args.image_only_model )
 
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
 
     train_datagen = None
-    if args.dataaug:
-      train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+    if args.image_only_model:
+      if args.dataaug:
+        train_datagen = IDG(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+      else:
+        train_datagen = IDG()
     else:
-      train_datagen = datagen()
-    train_data_it = train_datagen.flow_from_dataframe( 
-                            dataframe= train_df,
-                            directory= None,
-                            x_col=["filenames","image_captions"], y_col="class", has_ext=True,
-                            target_size=(256, 256), color_mode='rgb',
-                            classes=classnames, class_mode='categorical',
-                            batch_size=32, shuffle=False, seed=None,
-                            save_to_dir=None,
-                            save_prefix='',
-                            save_format='png',
-                            subset=None,
-                            interpolation='nearest',
-                            sort=False,
-                            cap_token_vocab=word_index,
-                            num_tokens = len(word_index),
-                            follow_links= True)
+      if args.dataaug:
+        train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+      else:
+        train_datagen = datagen()
+    if  args.image_only_model:
+      train_data_it = train_datagen.flow_from_dataframe( 
+                              dataframe= train_df,
+                              directory= None,
+                              x_col="filenames", y_col="class", has_ext=True,
+                              target_size=(256, 256), color_mode='rgb',
+                              classes=classnames, class_mode='categorical',
+                              batch_size=32, shuffle=False, seed=None,
+                              save_to_dir=None,
+                              save_prefix='',
+                              save_format='png',
+                              subset=None,
+                              interpolation='nearest',
+                              sort=False,
+                              follow_links= True)
+    else:
+      train_data_it = train_datagen.flow_from_dataframe( 
+                                                        dataframe= train_df,
+                                                        directory= None,
+                                                        x_col=["filenames","image_captions"], 
+                                                        y_col="class", has_ext=True,
+                                                        target_size=(256, 256), color_mode='rgb',
+                                                        classes=classnames, class_mode='categorical',
+                                                        batch_size=32, shuffle=False, seed=None,
+                                                        save_to_dir=None,
+                                                        save_prefix='',
+                                                        save_format='png',
+                                                        subset=None,
+                                                        interpolation='nearest',
+                                                        sort=False,
+                                                        cap_token_vocab=word_index,
+                                                        num_tokens = len(word_index),
+                                                        follow_links= True)
     end2endmodel.fit_generator(train_data_it)
     train_file_id =os.path.basename(args.train_csv_file)
     train_file_id = os.path.splitext(train_file_id)[0]
-    end2endmodel.save("{}_keras_vse_model.h5".format(train_file_id))
+    if args.image_only_model:
+      train_file_id +='_image_only'
+    if not os.path.exists("models_dir"):
+      os.makedirs("models_dir")
+    end2endmodel.save("./models_dir/{}_keras_vse_model.h5".format(train_file_id))
 
