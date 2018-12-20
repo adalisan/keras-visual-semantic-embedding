@@ -38,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('--fix_gpu', type=int, default=-1)
     parser.add_argument('--verbose', default=False,  action="store_true")
     parser.add_argument('--image_only_model', default=False,  action="store_true")
+    parser.add_argument('--no_training', default=False,  action="store_true")
     
     args = parser.parse_args()
 
@@ -63,7 +64,7 @@ if __name__ == '__main__':
     config.gpu_options.visible_device_list = gpu_id_str
     def check_gpu_availability():
         print ("checking if gpus  are available and seen by keras/tf")
-        from tensorflow.python.client import device_lib
+        from tf.python.client import device_lib
         assert 'GPU' in str(device_lib.list_local_devices())
 
         # confirm Keras sees the GPU
@@ -109,6 +110,7 @@ if __name__ == '__main__':
     print (type(texts[0]))
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
+    
 
     end2endmodel, vocab_map = \
        concept_detector( args.model_file, args.glove_embed_file,
@@ -118,7 +120,14 @@ if __name__ == '__main__':
                      image_only_model =args.image_only_model )
 
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
+    with open("caption_vocab.txt","w") as v_fh:
+      for word in vocab_map:
+        v_fh.write("{}\n".format(word))
+    
 
+    if args.no_training:
+      print ("Stopping before training")
+      sys.exit(0)
     train_datagen = None
     if args.image_only_model:
       if args.dataaug:
