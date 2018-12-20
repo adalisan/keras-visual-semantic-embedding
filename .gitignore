@@ -10,3 +10,6 @@ MANIFEST
 dist/
 *.npz
 *.pkl
+keras_vse/keras_vse_runlog*.txt
+*.png
+*.h5
