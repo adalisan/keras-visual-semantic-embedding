@@ -177,9 +177,15 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
         keras_train_df = keras_train_df.append(new_df_dict)
     keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv",encoding="utf8")
 
-def get_similar(model,token,topn):
-    
-    return model.most_similar(tok,topn=topn)
+def get_similar(model,tok,topn):
+    if '_' in tok:
+        tok = tok.replace('_',' ')
+    # if '-' in tok:
+    #     tok = tok.replace('-',' ')
+    if tok not in model:
+        return []
+    else:
+        return model.most_similar(tok,topn=topn)
 
 def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_Concepts/Combined_OpenCorpora_new_OI_Sing_VW_train_labels.csv",
                          img_id_imgpath_csv= "/nfs/mercury-11/u113/projects/AIDA/Comb_YT8m_Sing_newOI.part" , sim_thres =0.6,
@@ -218,12 +224,17 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
             img_id_classname_dict[img_id] = classnames
             tokens  = [cl.split('-')[1] for cl in classnames ]
             #glove.most_similar('token', )
+            dummy_caption = ""
             
             similar_tokens_list = [get_similar(word2vec_model,tok,topn=topn) for tok in tokens ]
+            token_ct = 0
             for similar_tokens in similar_tokens_list:
                 for similar_token,similarity in similar_tokens:
+                    
                     if similarity > sim_thres and similar_token in caption_vocab:
+
                         dummy_caption += " {}".format(similar_token)
+                        token_ct += 1
             
             img_path = img_id_imgpath_dict.get(img_id,"")
             new_df_dict = { "filenames":      [img_path for i in classnames] ,
