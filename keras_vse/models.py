@@ -10,7 +10,7 @@ from keras import __version__ as keras_ver
 from tools import encode_sentences
 
 import pandas
-import glove
+#from glove import Glove
 
 # from translate import Translator
 import pdb
