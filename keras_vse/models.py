@@ -10,6 +10,8 @@ from keras import __version__ as keras_ver
 from tools import encode_sentences
 
 import pandas
+import glove
+
 # from translate import Translator
 import pdb
 try:
@@ -231,6 +233,7 @@ def compute_embedding_matrix(glove_file,word_index,vocab_embed_dim=None):
                 embed_dict[word] = coefs
             embed_dict["avg_word_vector"] = avg_embed_vec
     embedding_matrix = np.zeros((len(word_index) + 1, vocab_embed_dim))
+    fh = open("oov.txt",'w', encoding="utf8")
     for word, i in word_index.items():
         embedding_vector = embeddings_index.get(word)
         if embedding_vector is not None:
@@ -241,8 +244,8 @@ def compute_embedding_matrix(glove_file,word_index,vocab_embed_dim=None):
             #translation = translator.translate(word)
             #pdb.set_trace()
             #print( u' %s not found in glove embedding. translating word to english in case foreign word' % word)
-            with open("oov.txt",'w', encoding="utf8") as fh:
-                fh.write("%s\n" % word)
+            
+            fh.write("%s\n" % word)
 
             embedding_matrix[i,:] = avg_embed_vec
 
@@ -252,5 +255,6 @@ def compute_embedding_matrix(glove_file,word_index,vocab_embed_dim=None):
             # if embedding_vector is not None:
             #     embedding_matrix[i] = embedding_vector
     embedding_matrix[-1,:] =avg_embed_vec
+    fh.close()
     return embedding_matrix,vocab_embed_dim
 
