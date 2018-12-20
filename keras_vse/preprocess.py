@@ -1,31 +1,35 @@
 #!/usr/bin/env python3
-from  vocab import *
-import os
-import json 
-import csv
 import argparse
+import codecs
+import csv
+import json
+import os
+from os.path import exists as ose
 from os.path import join as osp
+
+import numpy as np
 import pandas as pd
 import six
-from PIL import Image
-import codecs
-try:
-   from urllib.parse import urlparse as urlparse
-except  ImportError:
-   import urlparse
 import visual_genome
-from visual_genome import api  as vg
-from visual_genome import local  as vg_local
-from os.path import exists as ose
-import numpy as np
+from gensim.models import Word2Vec
+from glove import Glove
+from PIL import Image
+from visual_genome import api as vg
+from visual_genome import local as vg_local
 
+from vocab import *
+
+try:
+    from urllib.parse import urlparse as urlparse
+except  ImportError:
+    import urlparse
 
 image_path_dict ={}
 image_dict = {}
 image_caption_dict ={}
 image_concept_dict={}
 concept_image_dict = {}
-def GI_download_verify_images():
+def GI_download_verify_images(fpath_dict_json,img_caption_dict_json,img_class_json, GI_staging_dir):
     
     with open(osp(GI_staging_dir,fpath_dict_json),'r') as fp:
         img_paths_to_hash=json.load(fp)
@@ -36,7 +40,7 @@ def GI_download_verify_images():
     with open(osp(GI_staging_dir,img_class_to_img_fpath_json),'r') as fp:
         img_concept_examplar_dict=json.load(fp)
 
-   
+    delete_from_dataset = []
     img_paths_to_hash = dict((k,v) for k,v in six.iteritems(img_paths_to_hash) if v not in delete_from_dataset)
     img_captions_dict = dict( (k,v) for k,v in six.iteritems(img_captions_dict) if k not in delete_from_dataset)
     img_concepts_dict = dict( (k,v) for k,v in six.iteritems(img_concepts_dict) if k not in delete_from_dataset)
@@ -150,10 +154,10 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
                                     data_dir=data_dir+'/', image_data_dir='{}/by-id/'.format(data_dir))
         if img_it % 1000 == 0 :
             print("{}th image and captions added to dataframe".format(img_it))
-        scenegraph = vg.get_scene_graph_of_image(id=img_id)
-        regions = vg.get_region_descriptions_of_image(id=img_id)
+        
+        
         #select the first relationship at random
-        rels_img =scenegraph.relationships
+        rels_img =scene_graphs[0].relationships
         img_captions =  rels_img.values()
         img_classes =  scenegraph.objects
         num_of_multilabels = len(img_classes)
@@ -172,6 +176,68 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
         "class" : img_classes}
         keras_train_df = keras_train_df.append(new_df_dict)
     keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv",encoding="utf8")
+
+def get_similar(model,token,topn):
+    
+    return model.most_similar(tok,topn=topn)
+
+def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_Concepts/Combined_OpenCorpora_new_OI_Sing_VW_train_labels.csv",
+                         img_id_imgpath_csv= "/nfs/mercury-11/u113/projects/AIDA/Comb_YT8m_Sing_newOI.part" , sim_thres =0.6,
+                         glove_model_file = "/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt"):
+
+    train_df = pd.DataFrame(data=dict({"filenames":np.array([],dtype="<U2"),
+                                    "image_captions":np.array([],dtype="<U2"),
+                                    "class":np.array([],dtype="<U2")}))
+
+    import gensim.downloader as api
+    
+    try:
+        model_download_path = api.load('glove-twitter-100',return_path=True)
+        print("using model file at  ", model_download_path)
+    except Exception as e:
+        print (e)
+    word2vec_model = api.load('glove-twitter-100',return_path=False)
+    
+    print(type(word2vec_model))
+    #word2vec_model.most_similar
+    #glove_model = Glove.load(glove_model_file)
+    #Word2Vec.load()
+    topn = 3
+    img_id_imgpath_dict = dict()
+    with open(img_id_imgpath_csv,'r') as fh:
+        for line in fh.readlines():
+            line = line.strip()
+            img_id,img_path = line.split(':')
+            img_id_imgpath_dict.update({img_id: img_path})
+    img_id_classname_dict =dict()
+    with open(class_labels_csv,'r') as fh:
+        for line in fh.readlines():
+            line = line.strip()
+            img_id,classes_str =line.split(',')
+            classnames = classes_str.split(' ')
+            img_id_classname_dict[img_id] = classnames
+            tokens  = [cl.split('-')[1] for cl in classnames ]
+            #glove.most_similar('token', )
+            
+            similar_tokens_list = [get_similar(word2vec_model,tok,topn=topn) for tok in tokens ]
+            for similar_tokens in similar_tokens_list:
+                for similar_token,similarity in similar_tokens:
+                    if similarity > sim_thres and similar_token in caption_vocab:
+                        dummy_caption += " {}".format(similar_token)
+            
+            img_path = img_id_imgpath_dict.get(img_id,"")
+            new_df_dict = { "filenames":      [img_path for i in classnames] ,
+                            "image_captions": [dummy_caption for i in classnames]  ,
+                            "class" :         [cl for cl in classnames]
+                            }
+            keras_train_df = keras_train_df.append(pd.DataFrame(new_df_dict))
+    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/OI_keras_train.csv",encoding="utf8")
+            
+
+
+
+
+
 
 def Google_conceptual_captions_ingest(image_caption_tsv, kfile):
     with open(kfile, 'r') as fh:
@@ -202,7 +268,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser('Preprocess ')
     parser.add_argument('--out_data_dir', type=str,dest= "KERAS_DATAGEN_DIR")
-    parser.add_argument('--dataset', type=str,dest= "data_source", choices= ["GI","GoogleCaps","VisualGenome"])
+    parser.add_argument('--dataset', type=str,dest= "data_source", choices= ["GI","GoogleCaps","VisualGenome","OI"])
 
     args = parser.parse_args()
     if args.data_source=="GI":
@@ -210,6 +276,13 @@ if __name__ == '__main__':
     elif args.data_source == "GoogleCaps":
         Google_conceptual_captions_ingest(image_caption_tsv= "/nfs/mercury-11/u113/projects/AIDA/Train%2FGCC-training.tsv",
                                     kfile="/nfs/mercury-11/u113/projects/AIDA/concept_lists/relevant_vocab.txt.3")
+    elif args.data_source == "OI":
+        caption_vocab_file = "caption_vocab.txt"
+        caption_vocab = []
+        with open(caption_vocab_file,"r") as cap_v_file:
+            for word in  cap_v_file.readlines():
+                caption_vocab.append(word.strip())
+        get_img_concepts_OI(caption_vocab=caption_vocab)
     else:
         visual_genome_ingest()
 
