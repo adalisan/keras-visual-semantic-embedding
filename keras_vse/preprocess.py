@@ -241,7 +241,7 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
                             "image_captions": [dummy_caption for i in classnames]  ,
                             "class" :         [cl for cl in classnames]
                             }
-            train_df = keras_train_df.append(pd.DataFrame(new_df_dict))
+            train_df = train_df.append(pd.DataFrame(new_df_dict))
     train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/OI_keras_train.csv",encoding="utf8")
             
 
