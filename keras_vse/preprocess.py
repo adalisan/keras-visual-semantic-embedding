@@ -137,7 +137,7 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
                                     "image_captions":np.array([],dtype="<U2"),
                                     "class":np.array([],dtype="<U2")}))
     print("saving scen graphs")
-    vg_local.save_scene_graphs_by_id(data_dir=data_dir+'/' ,image_data_dir='{}/by-id/'.format(data_dir))
+    #vg_local.save_scene_graphs_by_id(data_dir=data_dir+'/' ,image_data_dir='{}/by-id/'.format(data_dir))
     print("loading scene graphs by image id")
   # Load scene graphs in 'data/by-id', from index 0 to 200.
   # We'll only keep scene graphs with at least 1 relationship.
@@ -154,28 +154,43 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
                                     data_dir=data_dir+'/', image_data_dir='{}/by-id/'.format(data_dir))
         if img_it % 1000 == 0 :
             print("{}th image and captions added to dataframe".format(img_it))
+        if len(scene_graphs)==0:
+            continue
+        scene_graph = scene_graphs[0]
+        #scene_graph = get_scene_graph(img_id)
         
+        rels_img =scene_graph.relationships
+        objects = scene_graph.objects
         
-        #select the first relationship at random
-        rels_img =scene_graphs[0].relationships
-        img_captions =  rels_img.values()
-        img_classes =  scenegraph.objects
+        if (isinstance(rels_img,list)):
+            print (len(rels_img))
+        # for rels in rels_img:
+        #     print ("type of rels")
+        #     print (type(rels))
+        
+        img_captions = ""
+        for rels in rels_img:
+            img_captions += str(rels) # +'. '
+        
+        img_classes =  [str(obj) for obj in scene_graph.objects]
         num_of_multilabels = len(img_classes)
         
         
-        z = urlparse( all_image_data_dict[image_id])
+        z = urlparse( all_image_data_dict[img_id])
         _,subdir,filename = z.path.rsplit('/',maxsplit=2)
         img_path = osp(image_data_dir,subdir,filename)
         if len(img_captions)>num_of_multilabels:
-            used_img_captions = np.random.choice(img_captions,k=num_of_multilabels)
+            rand_captions_idx  = np.random.randint(0,len(img_captions),num_of_multilabels)
+            used_img_captions = [img_captions[idx] for idx in rand_captions_idx]
         else:
-            used_img_captions = [img_captions [0]]
+            used_img_captions = [img_captions [0] for idx in range(num_of_multilabels)]
 
-        new_df_dict = {"filenames":img_path,
+        new_df_dict = {"filenames":[img_path for i in range(num_of_multilabels)],
         "image_captions": used_img_captions,
         "class" : img_classes}
-        keras_train_df = keras_train_df.append(new_df_dict)
+        keras_train_df = keras_train_df.append(pd.DataFrame(new_df_dict))
     keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv",encoding="utf8")
+
 
 def get_similar(model,tok,topn):
     if '_' in tok:
@@ -220,9 +235,20 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
         for line in fh.readlines():
             line = line.strip()
             img_id,classes_str =line.split(',')
+            classes_str= classes_str.strip()
             classnames = classes_str.split(' ')
             img_id_classname_dict[img_id] = classnames
-            tokens  = [cl.split('-')[1] for cl in classnames ]
+            tokens = []
+            
+            src_tokens_pairs  = [cl.split('-') for cl in classnames ]
+            for pair in src_tokens_pairs:
+                if len(pair)>1:
+                    tokens.append(pair[1])
+                else:
+                    print("weird classname")
+                    print(pair)
+
+
             #glove.most_similar('token', )
             dummy_caption = ""
             
