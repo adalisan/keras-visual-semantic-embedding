@@ -11,6 +11,8 @@ from keras_image_caption_data_generator import MultimodalInputDataGenerator as d
 from keras.preprocessing.image import ImageDataGenerator as IDG
 from models import concept_detector
 from keras import backend  as K
+from keras.models import load_model
+from layers import L2Normalize
 
 import tensorflow as tf
 
@@ -110,7 +112,7 @@ if __name__ == '__main__':
     print('Found %s unique tokens.' % len(word_index))
 
 
-    end2endmodel = load_model(args.model_file)
+    end2endmodel = load_model(args.model_file,custom_objects={'L2Normalize':L2Normalize})
 
     train_datagen = None
     if args.image_only_model:
@@ -123,13 +125,15 @@ if __name__ == '__main__':
         test_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
       else:
         test_datagen = datagen()
+    
+    print(type(test_datagen))
     if  args.image_only_model:
       test_data_it = test_datagen.flow_from_dataframe( 
                               dataframe= train_df,
                               directory= None,
                               x_col="filenames", y_col="class", has_ext=True,
                               target_size=(256, 256), color_mode='rgb',
-                              classes=classnames, class_mode='categorical',
+                               class_mode=None,
                               batch_size=32, shuffle=False, seed=None,
                               save_to_dir=None,
                               save_prefix='',
@@ -145,7 +149,7 @@ if __name__ == '__main__':
                                                         x_col=["filenames","image_captions"], 
                                                         y_col="class", has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
-                                                        classes=classnames, class_mode='categorical',
+                                                         class_mode=None,
                                                         batch_size=32, shuffle=False, seed=None,
                                                         save_to_dir=None,
                                                         save_prefix='',
@@ -157,4 +161,8 @@ if __name__ == '__main__':
                                                         num_tokens = len(word_index),
                                                         follow_links= True)
     predictions = end2endmodel.predict_generator(test_data_it)
+    preds_out = open("preds_out.txt","w")
+    for pr in predictions:
+      print(pr)
+      preds_out.write("{}\n".format(pr))
     
