@@ -399,6 +399,14 @@ class DataFramewithMultiModalInputIterator(Iterator):
                     hash=np.random.randint(1e7),
                     format=self.save_format)
                 img.save(os.path.join(self.save_to_dir, fname))
+        
+        batch_z = np.zeros((len(batch_x), self.num_tokens+1),dtype= self.dtype)
+
+        for i, cap in enumerate([self.captions[j] for j in index_array]):
+            img_cap_tokens = cap.strip().split()
+            for z in img_cap_tokens:
+                token_idx = self.caption_token_vocab.get(z,self.num_tokens)
+                batch_z[i,token_idx] = 1.
         # build batch of labels
         if self.class_mode == 'input':
             batch_y = batch_x.copy()
@@ -415,14 +423,8 @@ class DataFramewithMultiModalInputIterator(Iterator):
         elif self.class_mode == 'other':
             batch_y = self.data[index_array]
         else:
-            return batch_x
-        batch_z = np.zeros((len(batch_x), self.num_tokens+1),dtype= self.dtype)
+            return [batch_x,batch_z]
 
-        for i, cap in enumerate([self.captions[j] for j in index_array]):
-            img_cap_tokens = cap.strip().split()
-            for z in img_cap_tokens:
-                token_idx = self.caption_token_vocab.get(z,self.num_tokens)
-                batch_z[i,token_idx] = 1.
 
         return [batch_x,batch_z], batch_y
     def _list_valid_filepaths(self, white_list_formats):
