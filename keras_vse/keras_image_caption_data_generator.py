@@ -1,4 +1,19 @@
 #encoding: utf-8
+"""Modified version of ImageDataGenerator and DataframeIterator to yield both image numpy arrays and image captions from dataframe 
+    
+    
+    Raises:
+        ImportError -- must import pandas
+        ValueError -- input column names of dataframe must be strings
+        ValueError -- has_ext argument
+        ValueError -- [description]
+        ValueError -- [description]
+        ValueError -- [description]
+        ValueError -- [description]
+        TypeError -- [description]
+
+"""
+
 import os
 import numpy as np
 from keras.preprocessing.image import ImageDataGenerator as IDG
@@ -13,6 +28,7 @@ import warnings
 
 
 class MultimodalInputDataGenerator(IDG):
+
     def __init__(self,num_patch_along_one_dimension=1,*args,**kwargs):
         
         self.bag_size =num_patch_along_one_dimension **2
@@ -32,7 +48,7 @@ class MultimodalInputDataGenerator(IDG):
                             sort=True,
                             follow_links=True,
                             **kwargs):
-            """Takes the dataframe and the path to a directory
+        """Takes the dataframe and the path to a directory
          and generates batches of augmented/normalized data.
         # A simple tutorial can be found at: http://bit.ly/keras_flow_from_dataframe
         # Arguments
@@ -100,7 +116,7 @@ class MultimodalInputDataGenerator(IDG):
             and `y` is a numpy array of corresponding labels.
         """
 
-            return DataFramewithMultiModalInputIterator(dataframe, directory, self,
+        return DataFramewithMultiModalInputIterator(dataframe, directory, self,
                                  x_cols=x_col, y_col=y_col, has_ext=has_ext,
                                  target_size=target_size, color_mode=color_mode,
                                  classes=classes, class_mode=class_mode,
@@ -217,8 +233,9 @@ class DataFramewithMultiModalInputIterator(Iterator):
             import pandas as pd
         except ImportError:
             raise ImportError('Install pandas to use flow_from_dataframe.')
-        if type(x_cols[0]) != str:
-            raise ValueError("x_col must be a string.")
+        if type(x_cols[0]) != str or type(x_cols[1]) != str :
+            raise ValueError("elements of x_cols  must be a string.")
+        
         if type(has_ext) != bool:
             raise ValueError("has_ext must be either True if filenames in"
                                 " x_col has extensions,else False.")

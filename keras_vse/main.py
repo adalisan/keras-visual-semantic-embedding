@@ -2,6 +2,7 @@
 #encoding: utf-8
 import os ,sys
 import argparse
+import datetime
 from models import encode_sentences
 from models import build_pretrained_models
 import pandas as pd
@@ -101,7 +102,7 @@ if __name__ == '__main__':
       print(train_df.shape)
     new_class_counts = train_df["class"].value_counts()
     new_class_counts.to_csv("class_counts.csv")
-
+    timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
 
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
     tokenizer = Tokenizer(num_words=args.maxtokencount)
@@ -120,7 +121,7 @@ if __name__ == '__main__':
                      image_only_model =args.image_only_model )
 
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
-    with open("caption_vocab.txt","w") as v_fh:
+    with open("caption_vocab{}.txt".format(timestamp),"w") as v_fh:
       for word in vocab_map:
         v_fh.write("{}\n".format(word))
     
@@ -177,7 +178,53 @@ if __name__ == '__main__':
     train_file_id = os.path.splitext(train_file_id)[0]
     if args.image_only_model:
       train_file_id +='_image_only'
+    if args.dataaug:
+      train_file_id +='_aug'
+    train_file_id +='_epoch_{}'.format(args.epoch)
     if not os.path.exists("models_dir"):
       os.makedirs("models_dir")
-    end2endmodel.save("./models_dir/{}_keras_vse_model.h5".format(train_file_id))
+    model_fname = "{}_keras_vse_model-{}".format(train_file_id,timestamp)
+    end2endmodel.save("./models_dir/{}.h5".format(model_fname))
+    with open("./models_dir/{}.json".format(model_fname)) as json_fh:
+      json_fh.write(end2endmodel.to_json()+"\n")
+    end2endmodel.save_weights("./models_dir/{}_weights.h5".format(model_fname))
+    
 
+    if  args.image_only_model:
+      test_data_it = test_datagen.flow_from_dataframe( 
+                              dataframe= train_df,
+                              directory= None,
+                              x_col="filenames", y_col="class", has_ext=True,
+                              target_size=(256, 256), color_mode='rgb',
+                               class_mode=None,
+                              batch_size=32, shuffle=False, seed=None,
+                              save_to_dir=None,
+                              save_prefix='',
+                              save_format='png',
+                              subset=None,
+                              interpolation='nearest',
+                              sort=False,
+                              follow_links= True)
+    else:
+      test_data_it = test_datagen.flow_from_dataframe( 
+                                                        dataframe= train_df,
+                                                        directory= None,
+                                                        x_col=["filenames","image_captions"], 
+                                                        y_col="class", has_ext=True,
+                                                        target_size=(256, 256), color_mode='rgb',
+                                                         class_mode=None,
+                                                        batch_size=32, shuffle=False, seed=None,
+                                                        save_to_dir=None,
+                                                        save_prefix='',
+                                                        save_format='png',
+                                                        subset=None,
+                                                        interpolation='nearest',
+                                                        sort=False,
+                                                        cap_token_vocab=word_index,
+                                                        num_tokens = len(word_index),
+                                                        follow_links= True)
+    predictions = end2endmodel.predict_generator(test_data_it)
+    preds_out = open("{}_{}preds_out.txt".format(train_file_id,timestamp),"w")
+    for pr in predictions:
+      print(pr)
+      preds_out.write("{}\n".format(pr))
