@@ -11,7 +11,7 @@ from keras_image_caption_data_generator import MultimodalInputDataGenerator as d
 from keras.preprocessing.image import ImageDataGenerator as IDG
 from models import concept_detector
 from keras import backend  as K
-from keras.models import load_model
+from keras.models import load_model, model_from_json
 from layers import L2Normalize
 
 import tensorflow as tf
@@ -113,6 +113,10 @@ if __name__ == '__main__':
 
 
     end2endmodel = load_model(args.model_file,custom_objects={'L2Normalize':L2Normalize})
+
+    end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
+    #end2endmodel = model_from_json(json.loads(open("model_arch.json",'r')),custom_objects={'L2Normalize':L2Normalize} )
+    #end2endmodel.load_weights(args.model_file)
 
     train_datagen = None
     if args.image_only_model:
