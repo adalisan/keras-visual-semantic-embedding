@@ -150,9 +150,9 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
     image_ids = all_image_data_dict.keys()
     print ("There are {} images in VG dataset".format(len(image_ids)))
     for img_it,img_id in enumerate(image_ids):
-        scene_graphs = vg_local.get_scene_graphs(start_index=img_id, end_index=img_id+1, min_rels=1,
+        scene_graphs = vg_local.get_scene_graphs(start_index=img_id, end_index=img_id+1, min_rels=1,max_rels= 5,
                                     data_dir=data_dir+'/', image_data_dir='{}/by-id/'.format(data_dir))
-        if img_it % 1000 == 0 :
+        if img_it % 10000 == 0 :
             print("{}th image and captions added to dataframe".format(img_it))
         if len(scene_graphs)==0:
             continue
@@ -179,11 +179,8 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
         z = urlparse( all_image_data_dict[img_id])
         _,subdir,filename = z.path.rsplit('/',maxsplit=2)
         img_path = osp(image_data_dir,subdir,filename)
-        if len(img_captions)>num_of_multilabels:
-            rand_captions_idx  = np.random.randint(0,len(img_captions),num_of_multilabels)
-            used_img_captions = [img_captions[idx] for idx in rand_captions_idx]
-        else:
-            used_img_captions = [img_captions [0] for idx in range(num_of_multilabels)]
+        used_img_captions = [img_captions  for idx in range(num_of_multilabels)]
+        
 
         new_df_dict = {"filenames":[img_path for i in range(num_of_multilabels)],
         "image_captions": used_img_captions,
