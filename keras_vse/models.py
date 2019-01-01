@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+#encoding: utf-8
 import numpy as np
 import six
 from keras import backend as K
@@ -68,6 +70,8 @@ def build_image_feat_extractor():
 def build_image_encoder(weights=None, input_dim=4096, embedding_dim=1024, normalize=True):
     #input  = Input(shape=(input_dim,))
     init_model = build_image_feat_extractor()
+    for layer in init_model.layers:
+        layer.trainable = False
     #init_model.compile
     x= Dense(
         embedding_dim,
