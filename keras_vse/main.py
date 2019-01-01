@@ -6,11 +6,13 @@ import datetime
 from models import encode_sentences
 from models import build_pretrained_models
 import pandas as pd
+from keras.optimizers import Nadam
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras_image_caption_data_generator import MultimodalInputDataGenerator as datagen
 from keras.preprocessing.image import ImageDataGenerator as IDG
 from models import concept_detector
+
 from keras import backend  as K
 
 import tensorflow as tf
@@ -40,6 +42,8 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', default=False,  action="store_true")
     parser.add_argument('--image_only_model', default=False,  action="store_true")
     parser.add_argument('--no_training', default=False,  action="store_true")
+    parser.add_argument('--run_prediction', default=False,  action="store_true")
+    
     
     args = parser.parse_args()
 
@@ -119,8 +123,8 @@ if __name__ == '__main__':
                      token_count = len(word_index),
                      num_classes= len(classnames),
                      image_only_model =args.image_only_model )
-
-    end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
+    optim_algo=Nadam(lr=.004 ,clipnorm=1.)
+    end2endmodel.compile(optimizer=optim_algo, loss="categorical_crossentropy")
     with open("caption_vocab{}.txt".format(timestamp),"w") as v_fh:
       for word in vocab_map:
         v_fh.write("{}\n".format(word))
@@ -190,6 +194,18 @@ if __name__ == '__main__':
     end2endmodel.save_weights("./models_dir/{}_weights.h5".format(model_fname))
     
 
+    test_datagen = None
+    if args.image_only_model:
+      if args.dataaug:
+        test_datagen = IDG(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+      else:
+        test_datagen = IDG()
+    else:
+      if args.dataaug:
+        test_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+      else:
+        test_datagen = datagen()
+    
     if  args.image_only_model:
       test_data_it = test_datagen.flow_from_dataframe( 
                               dataframe= train_df,
@@ -223,8 +239,11 @@ if __name__ == '__main__':
                                                         cap_token_vocab=word_index,
                                                         num_tokens = len(word_index),
                                                         follow_links= True)
-    predictions = end2endmodel.predict_generator(test_data_it)
-    preds_out = open("{}_{}preds_out.txt".format(train_file_id,timestamp),"w")
-    for pr in predictions:
-      print(pr)
-      preds_out.write("{}\n".format(pr))
+    test_preds_on_train_set = args.run_prediction
+    
+    if test_preds_on_train_set:
+      predictions = end2endmodel.predict_generator(test_data_it)
+      preds_out = open("{}_{}preds_out.txt".format(train_file_id,timestamp),"w")
+      for pr in predictions:
+        print(pr)
+        preds_out.write("{}\n".format(pr))
