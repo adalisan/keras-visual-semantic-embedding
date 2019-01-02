@@ -3,6 +3,8 @@
 import os ,sys
 import argparse
 import datetime
+from os.path import join as osp
+from shutil import copytree
 from models import encode_sentences
 from models import build_pretrained_models
 import pandas as pd
@@ -43,18 +45,38 @@ if __name__ == '__main__':
     parser.add_argument('--image_only_model', default=False,  action="store_true")
     parser.add_argument('--no_training', default=False,  action="store_true")
     parser.add_argument('--run_prediction', default=False,  action="store_true")
+    parser.add_argument('--source_dataset', default="GI",choices = ["GI","VG","OI","GCC"])
     
     
     args = parser.parse_args()
 
     verbose =args.verbose
     K.set_floatx('float16')
-    KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
-    regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links(.*)'
-    LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared"
-    replace_regex_exp = r'/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared\1'
-    # try:
-    #   copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+    dataset_localized = False
+    if args.source_dataset=="GI":
+      KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
+      regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links(.*)'
+      LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared"
+      replace_regex_exp = r'/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared\1'
+      dataset_localized = True
+    elif args.source_dataset=="VG":
+      KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data"
+      regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data(.*)'
+      LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/VisualGenomeData/image_data"
+      replace_regex_exp = r'/export/u10/sadali/AIDA/images/VisualGenomeData/image_data\1'
+      
+      if not os.path.exists (osp(LOCAL_STORAGE_DIR,"VG_100K")):
+        print ("copyying VG data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+        try:
+          copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+          dataset_localized = True
+        except Exception as e:
+          print (e)
+          print ("Unable to copy image files for {} ".format(args.source_dataset) )
+          dataset_localized = False
+      else:
+        dataset_localized = True
+
 
 
     gpu_id = 1
@@ -96,7 +118,8 @@ if __name__ == '__main__':
       print(untrainable_classnames)
       print (len(train_df))
     train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
-    train_df =train_df.replace(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR,regex= True)
+    if dataset_localized :
+      train_df =train_df.replace(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR,regex= True)
     print ("new examplar count {}".format(len(train_df)))
     classnames= [k for k in init_classnames if k not in untrainable_classnames] 
     if verbose:
@@ -135,7 +158,7 @@ if __name__ == '__main__':
       fh.write("\nblock5_conv4  wts: \n")
       fh.write(str(end2endmodel.get_layer('block5_conv4').get_weights()))
       fh.write("\n")
-    with open("caption_vocab{}.txt".format(timestamp),"w") as v_fh:
+    with open("caption_vocab-{}_{}.txt".format(args.source_dataset,timestamp),"w") as v_fh:
       for word in vocab_map:
         v_fh.write("{}\n".format(word))
     
