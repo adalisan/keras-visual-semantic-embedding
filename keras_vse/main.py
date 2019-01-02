@@ -77,7 +77,13 @@ if __name__ == '__main__':
       else:
         dataset_localized = True
 
-
+    train_file_id =os.path.basename(args.train_csv_file)
+    train_file_id = os.path.splitext(train_file_id)[0]
+    if args.image_only_model:
+      train_file_id +='_image_only'
+    if args.dataaug:
+      train_file_id +='_aug'
+    train_file_id +='_epoch_{}'.format(args.epoch)
 
     gpu_id = 1
     gpu_id_str = str(int(gpu_id)) 
@@ -211,13 +217,7 @@ if __name__ == '__main__':
                                                         num_tokens = len(word_index),
                                                         follow_links= True)
     end2endmodel.fit_generator(train_data_it)
-    train_file_id =os.path.basename(args.train_csv_file)
-    train_file_id = os.path.splitext(train_file_id)[0]
-    if args.image_only_model:
-      train_file_id +='_image_only'
-    if args.dataaug:
-      train_file_id +='_aug'
-    train_file_id +='_epoch_{}'.format(args.epoch)
+    
     if not os.path.exists("models_dir"):
       os.makedirs("models_dir")
     model_fname = "{}_keras_vse_model-{}".format(train_file_id,timestamp)
