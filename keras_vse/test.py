@@ -55,6 +55,9 @@ if __name__ == '__main__':
     #   copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
 
 
+    dataset_localized = True
+    has_labels = True
+
     gpu_id = 1
     gpu_id_str = str(int(gpu_id)) 
     if args.fix_gpu >= 0:
@@ -79,31 +82,38 @@ if __name__ == '__main__':
     set_session(tf.Session(config=config))
     train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
     if verbose:
+      print("CSV file columnar data types")
       print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
     texts = train_df["image_captions"].values.tolist()
-    class_names_pd =  pd.unique(train_df["class"].values)
-    init_classnames =class_names_pd.tolist()
+    if has_labels:
+      class_names_pd =  pd.unique(train_df["class"].values)
+      init_classnames =class_names_pd.tolist()
     
-    class_counts = train_df["class"].value_counts()
-    class_counts.to_csv("class_counts.csv")
-    class_ct_threshold = 50
+      class_counts = train_df["class"].value_counts()
+      class_counts.to_csv("class_counts.csv")
+      class_ct_threshold = 50
     
-    untrainable_classes    = class_counts < class_ct_threshold 
-    untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
+      untrainable_classes    = class_counts < class_ct_threshold 
+      untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
+      if verbose:
+        print ("Removed classes:\n",  untrainable_classnames)
+        print ("length of train_df",len(train_df))
+      train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
+      print ("new examplar count {}".format(len(train_df)))
+
+      classnames= [k for k in init_classnames if k not in untrainable_classnames] 
+      if verbose:
+        print("Num of classes ")
+        print (len(classnames))
+      new_class_counts = train_df["class"].value_counts()
+      new_class_counts.to_csv("class_counts.csv")
+    if dataset_localized:
+      train_df =train_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
+    
     if verbose:
-      print(untrainable_classnames)
-      print (len(train_df))
-    train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
-    train_df =train_df.replace(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR,regex= True)
-    print ("new examplar count {}".format(len(train_df)))
-    classnames= [k for k in init_classnames if k not in untrainable_classnames] 
-    if verbose:
-      print("Num of classes ")
-      print (len(classnames))
       print("Dimensions of training set dataframe")
       print(train_df.shape)
-    new_class_counts = train_df["class"].value_counts()
-    new_class_counts.to_csv("class_counts.csv")
+
 
 
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
@@ -157,7 +167,9 @@ if __name__ == '__main__':
       test_data_it = test_datagen.flow_from_dataframe( 
                               dataframe= train_df,
                               directory= None,
-                              x_col="filenames", y_col="class", has_ext=True,
+                              x_col="filenames", 
+                              y_col="class" if has_labels else None, 
+                              has_ext=True,
                               target_size=(256, 256), color_mode='rgb',
                                class_mode=None,
                               batch_size=32, shuffle=False, seed=None,
@@ -173,9 +185,10 @@ if __name__ == '__main__':
                                                         dataframe= train_df,
                                                         directory= None,
                                                         x_col=["filenames","image_captions"], 
-                                                        y_col="class", has_ext=True,
+                                                        y_col="class" if has_labels else None, 
+                                                        has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
-                                                         class_mode=None,
+                                                        class_mode=None,
                                                         batch_size=32, shuffle=False, seed=None,
                                                         save_to_dir=None,
                                                         save_prefix='',
@@ -191,4 +204,7 @@ if __name__ == '__main__':
     for pr in predictions:
       print(pr)
       preds_out.write("{}\n".format(pr))
-    
+    for batch in test_data_it:
+      preds_out = end2endmodel.predict_on_batch(batch)
+
+
