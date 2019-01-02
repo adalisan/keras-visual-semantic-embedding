@@ -170,7 +170,9 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
         
         img_captions = ""
         for rels in rels_img:
-            img_captions += str(rels) # +'. '
+            rel_num,rel_str = str(rels).split(':')
+
+            img_captions += rel_str +' '
         
         img_classes =  [str(obj) for obj in scene_graph.objects]
         num_of_multilabels = len(img_classes)
@@ -186,7 +188,7 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
         "image_captions": used_img_captions,
         "class" : img_classes}
         keras_train_df = keras_train_df.append(pd.DataFrame(new_df_dict))
-    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv",encoding="utf8")
+    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv",encoding="utf8",index=False)
 
 
 def get_similar(model,tok,topn):
@@ -245,7 +247,6 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
                     print("weird classname")
                     print(pair)
 
-
             #glove.most_similar('token', )
             dummy_caption = ""
             
@@ -253,9 +254,8 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
             token_ct = 0
             for similar_tokens in similar_tokens_list:
                 for similar_token,similarity in similar_tokens:
-                    
-                    if similarity > sim_thres and similar_token in caption_vocab:
 
+                    if similarity > sim_thres and similar_token in caption_vocab:
                         dummy_caption += " {}".format(similar_token)
                         token_ct += 1
             
@@ -263,7 +263,7 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
             new_df_dict = { "filenames":      [img_path for i in classnames] ,
                             "image_captions": [dummy_caption for i in classnames]  ,
                             "class" :         [cl for cl in classnames]
-                            }
+                        }
             train_df = train_df.append(pd.DataFrame(new_df_dict))
     train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/OI_keras_train.csv",encoding="utf8")
             
