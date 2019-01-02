@@ -1,5 +1,5 @@
 import os 
-import os.path.join as osp
+from  os.path import join  as osp
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
