@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 #encoding: utf-8
+
 import os ,sys
 import argparse
 from models import encode_sentences
@@ -13,8 +14,9 @@ from models import concept_detector
 from keras import backend  as K
 from keras.models import load_model, model_from_json
 from layers import L2Normalize
-
+import json
 import tensorflow as tf
+
 
 
 if 'tensorflow' == K.backend():
@@ -41,6 +43,7 @@ if __name__ == '__main__':
     parser.add_argument('--image_only_model', default=False,  action="store_true")
     
     args = parser.parse_args()
+
 
     verbose =args.verbose
     K.set_floatx('float16')
@@ -113,12 +116,31 @@ if __name__ == '__main__':
 
 
     end2endmodel = load_model(args.model_file,custom_objects={'L2Normalize':L2Normalize})
-
+    print("dense_1 wts: \n", end2endmodel.get_layer('dense_1').get_weights())
+    print("gru_1 wts: \n", end2endmodel.get_layer('gru_1').get_weights())
+    print("dense_2 wts: \n", end2endmodel.get_layer('dense_2').get_weights())
+    with open("layer_weights.txt","w") as fh:
+      fh.write("dense_1 wts: \n")
+      fh.write(str( end2endmodel.get_layer('dense_1').get_weights()))
+      fh.write("gru_1 wts: \n")
+      fh.write(str( end2endmodel.get_layer('gru_1').get_weights()))
+      fh.write("dense_2 wts: \n")
+      fh.write(str( end2endmodel.get_layer('dense_2').get_weights()))
+      fh.write("block5_conv4  wts: \n")
+      fh.write(str(end2endmodel.get_layer('block5_conv4').get_weights()))
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
-    #end2endmodel = model_from_json(json.loads(open("model_arch.json",'r')),custom_objects={'L2Normalize':L2Normalize} )
-    #end2endmodel.load_weights(args.model_file)
-
-    train_datagen = None
+    try:
+      #model_fname = "{}_keras_vse_model-{}".format(train_file_id,timestamp)
+      timestamp = "2018_12_20_22_03"
+      model_fname = "GI_keras_train_qa"+"_keras_vse_model-{}".format(timestamp)
+      end2endmodel_2 = model_from_json(json.loads(open("./models_dir/{}.json".format(model_fname),'r')),custom_objects={'L2Normalize':L2Normalize} )
+      end2endmodel_2.load_weights(args.model_file)
+      print("dense_1 wts: \n", end2endmodel_2.get_layer('dense_1').get_weights())
+    except Exception as e:
+      print (e)
+    
+    #sys.exit(0)
+    test_datagen = None
     if args.image_only_model:
       if args.dataaug:
         test_datagen = IDG(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )

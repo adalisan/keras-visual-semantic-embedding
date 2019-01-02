@@ -125,6 +125,16 @@ if __name__ == '__main__':
                      image_only_model =args.image_only_model )
     optim_algo=Nadam(lr=.004 ,clipnorm=1.)
     end2endmodel.compile(optimizer=optim_algo, loss="categorical_crossentropy")
+    with open("{}_trained_layer_weights_{}.txt".format(train_file_id,timestamp),"w") as fh:
+      fh.write("dense_1 wts: \n")
+      fh.write(str( end2endmodel.get_layer('dense_1').get_weights()))
+      fh.write("\ngru_1 wts: \n")
+      fh.write(str( end2endmodel.get_layer('gru_1').get_weights()))
+      fh.write("\ndense_2 wts: \n")
+      fh.write(str( end2endmodel.get_layer('dense_2').get_weights()))
+      fh.write("\nblock5_conv4  wts: \n")
+      fh.write(str(end2endmodel.get_layer('block5_conv4').get_weights()))
+      fh.write("\n")
     with open("caption_vocab{}.txt".format(timestamp),"w") as v_fh:
       for word in vocab_map:
         v_fh.write("{}\n".format(word))
