@@ -13,3 +13,7 @@ dist/
 keras_vse/keras_vse_runlog*.txt
 *.png
 *.h5
+*.csv
+*.bak
+logs
+output
