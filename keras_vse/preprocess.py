@@ -271,7 +271,7 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
                         }
             train_df = train_df.append(pd.DataFrame(new_df_dict))
     train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/OI_keras_train.csv",encoding="utf8")
-            
+
 
 
 
@@ -285,23 +285,27 @@ def BBN_AIDA_annotation_ingest(
     for dataset_file  in glob.glob(osp(dataset_dir,"*.tab")):
 
         f_id = os.path.basename(dataset_file)
-        f_id = f_id.splitext()[0]
+        f_id = os.path.splitext(f_id)[0]
         for annot_file  in glob.glob(osp(annotation_dir,f_id,"*.xml")):
             tree=exml.parse(annot_file)
             root=tree.getroot()
-            fname = root[1]
-            image_id = fname.splitext()[0]
+            fname = root[1].text
             
-            classnames = [ obj.name.tostring()  for obj in root.findall('./object') ]
+            image_id = os.path.splitext(fname)[0]
+            
+            classnames = [ obj.text  for obj in root.findall('./object/name') ]
+            if len(classnames)==0:
+                classnames=["Misc"]
             image_id_classlabel_dict .update({image_id:classnames})
 
         label_df = pd.DataFrame( [ (k,v_el)  for k,v in image_id_classlabel_dict.items() for v_el in v ] ,
-                    columns=["image_id","class"]) 
-        trainset_df = pd.read_csv(dataset_file,dialect='excel-tab', header = None, names=col_names)
+                    columns=["image_id","class"],dtype="object") 
+        trainset_df = pd.read_csv(dataset_file, dialect='excel-tab', header = None, names=col_names,dtype="object")
         merged_df= trainset_df.merge(label_df,left_on="child_id",right_on = "image_id",how = "left"  )
 
-        merged_df.subset(["filenames","image_caption","class"]).to_csv("AIDA_seedling_keras_train_{}.csv".format(f_id),
+        merged_df.loc[:,["filenames","image_caption","class"]].to_csv("AIDA_seedling_keras_train_{}.csv".format(f_id),
             encoding="utf8")
+        print (merged_df.head())
     return merged_df
 
 
@@ -336,7 +340,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser('Preprocess ')
     parser.add_argument('--out_data_dir', type=str,dest= "KERAS_DATAGEN_DIR")
-    parser.add_argument('--dataset', type=str,dest= "data_source", choices= ["GI","GoogleCaps","VisualGenome","OI"])
+    parser.add_argument('--dataset', type=str,dest= "data_source", 
+                choices= ["GI","GoogleCaps","VisualGenome","OI","AIDASeedling"])
 
     args = parser.parse_args()
     if args.data_source=="GI":
@@ -351,6 +356,8 @@ if __name__ == '__main__':
             for word in  cap_v_file.readlines():
                 caption_vocab.append(word.strip())
         get_img_concepts_OI(caption_vocab=caption_vocab)
+    elif args.data_source == "AIDASeedling":
+        BBN_AIDA_annotation_ingest()
     else:
         visual_genome_ingest()
 
