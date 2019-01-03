@@ -23,6 +23,11 @@ try:
     from urllib.parse import urlparse as urlparse
 except  ImportError:
     import urlparse
+    
+
+import glob
+import xml.etree.ElementTree as exml
+from os.path import exists as ose
 
 image_path_dict ={}
 image_dict = {}
@@ -269,6 +274,35 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
             
 
 
+
+def BBN_AIDA_annotation_ingest(
+        dataset_dir = "/nfs/raid66/u12/users/rbock/aida/image_captions/annotation_of_seedling_corpus/spreadsheets/with_paths" ,
+        annotation_dir = "/nfs/raid66/u12/users/rbock/aida/image_captions/annotation_of_seedling_corpus/images/"
+        ):
+    col_names = ["child_id", "article_url","image_url","image_caption","filenames"]
+    annot_sets = [ "LDC2018E01", "LDC2018E52" ]
+    image_id_classlabel_dict = {}
+    for dataset_file  in glob.glob(osp(dataset_dir,"*.tab")):
+
+        f_id = os.path.basename(dataset_file)
+        f_id = f_id.splitext()[0]
+        for annot_file  in glob.glob(osp(annotation_dir,f_id,"*.xml")):
+            tree=exml.parse(annot_file)
+            root=tree.getroot()
+            fname = root[1]
+            image_id = fname.splitext()[0]
+            
+            classnames = [ obj.name.tostring()  for obj in root.findall('./object') ]
+            image_id_classlabel_dict .update({image_id:classnames})
+
+        label_df = pd.DataFrame( [ (k,v_el)  for k,v in image_id_classlabel_dict.items() for v_el in v ] ,
+                    columns=["image_id","class"]) 
+        trainset_df = pd.read_csv(dataset_file,dialect='excel-tab', header = None, names=col_names)
+        merged_df= trainset_df.merge(label_df,left_on="child_id",right_on = "image_id",how = "left"  )
+
+        merged_df.subset(["filenames","image_caption","class"]).to_csv("AIDA_seedling_keras_train_{}.csv".format(f_id),
+            encoding="utf8")
+    return merged_df
 
 
 
