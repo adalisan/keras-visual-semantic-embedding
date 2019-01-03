@@ -1,4 +1,8 @@
 #! /usr/bin/env bash
 
-timestamp="$(date +"%T")"
-python3 main.py --train_csv_file GI_keras_train_qa.csv --glove_embed_file /nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt.pkl  --epoch 3 | tee -a keras_vse_runlog_$timestamp.txt
+timestamp="$(date +"%F_%T")"
+python3 main.py --train_csv_file GI_keras_train_qa.csv \
+    --glove_embed_file /nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt.pkl \
+    --run_prediction \
+    --source_dataset GI \
+     --epoch 3 --fix_gpu 0 | tee -a GI_keras_vse_runlog_$timestamp.txt 

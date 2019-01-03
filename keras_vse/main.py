@@ -222,10 +222,13 @@ if __name__ == '__main__':
       os.makedirs("models_dir")
     model_fname = "{}_keras_vse_model-{}".format(train_file_id,timestamp)
     end2endmodel.save("./models_dir/{}.h5".format(model_fname))
-    with open("./models_dir/{}.json".format(model_fname)) as json_fh:
-      json_fh.write(end2endmodel.to_json()+"\n")
-    end2endmodel.save_weights("./models_dir/{}_weights.h5".format(model_fname))
-    
+    try:
+      with open("./models_dir/{}.json".format(model_fname),"w") as json_fh:
+        json_fh.write(end2endmodel.to_json()+"\n")
+      end2endmodel.save_weights("./models_dir/{}_weights.h5".format(model_fname))
+    except Exception as e:
+      print (e)
+      print ("Unable to save model as json+h5 files")
 
     test_datagen = None
     if args.image_only_model:
