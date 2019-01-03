@@ -236,12 +236,19 @@ class DataFramewithMultiModalInputIterator(Iterator):
         if type(x_cols[0]) != str or type(x_cols[1]) != str :
             raise ValueError("elements of x_cols  must be a string.")
         
+
+
         if type(has_ext) != bool:
             raise ValueError("has_ext must be either True if filenames in"
                                 " x_col has extensions,else False.")
         self.df = dataframe.copy()
+        if y_col == "":
+            self.df.assign(placeholder = pd.Series("classname",index=df.index))
+            y_col = "placeholder"
+
+
         if drop_duplicates:
-            self.df.drop_duplicates(subset=[x_cols[0],y_col], inplace=True)
+            self.df.drop_duplicates(subset=x_cols+[y_col], inplace=True)
         self.x_col = x_cols[0]
         self.x_all_cols = x_cols
         for col in x_cols:
