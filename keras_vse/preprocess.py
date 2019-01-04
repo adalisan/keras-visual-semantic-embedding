@@ -292,7 +292,7 @@ def BBN_AIDA_annotation_ingest(
             fname = root[1].text
             
             image_id = os.path.splitext(fname)[0]
-            
+            print(fname , "   ",image_id)
             classnames = [ obj.text  for obj in root.findall('./object/name') ]
             if len(classnames)==0:
                 classnames=["Misc"]
@@ -300,12 +300,14 @@ def BBN_AIDA_annotation_ingest(
 
         label_df = pd.DataFrame( [ (k,v_el)  for k,v in image_id_classlabel_dict.items() for v_el in v ] ,
                     columns=["image_id","class"],dtype="object") 
-        trainset_df = pd.read_csv(dataset_file, dialect='excel-tab', header = None, names=col_names,dtype="object")
+        trainset_df = pd.read_csv(dataset_file, dialect='excel-tab', header = None, names=col_names, dtype="object")
+        #print (trainset_df.head())
         merged_df= trainset_df.merge(label_df,left_on="child_id",right_on = "image_id",how = "left"  )
-
+        #merged_df.rename(columns = {"child_id":})
+        
         merged_df.loc[:,["filenames","image_caption","class"]].to_csv("AIDA_seedling_keras_train_{}.csv".format(f_id),
             encoding="utf8")
-        print (merged_df.head())
+        print ( merged_df.loc[:,["filenames","image_caption","class"]].head())
     return merged_df
 
 
