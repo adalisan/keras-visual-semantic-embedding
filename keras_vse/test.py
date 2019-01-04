@@ -129,14 +129,14 @@ if __name__ == '__main__':
     print("dense_1 wts: \n", end2endmodel.get_layer('dense_1').get_weights())
     print("gru_1 wts: \n", end2endmodel.get_layer('gru_1').get_weights())
     print("dense_2 wts: \n", end2endmodel.get_layer('dense_2').get_weights())
-    with open("layer_weights.txt","w") as fh:
+    with open("layer_weights_at_test_time.txt","w") as fh:
       fh.write("dense_1 wts: \n")
       fh.write(str( end2endmodel.get_layer('dense_1').get_weights()))
-      fh.write("gru_1 wts: \n")
+      fh.write("\ngru_1 wts: \n")
       fh.write(str( end2endmodel.get_layer('gru_1').get_weights()))
-      fh.write("dense_2 wts: \n")
+      fh.write("\ndense_2 wts: \n")
       fh.write(str( end2endmodel.get_layer('dense_2').get_weights()))
-      fh.write("block5_conv4  wts: \n")
+      fh.write("\nblock5_conv4  wts: \n")
       fh.write(str(end2endmodel.get_layer('block5_conv4').get_weights()))
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
     try:
@@ -145,7 +145,7 @@ if __name__ == '__main__':
       model_fname = "GI_keras_train_qa"+"_keras_vse_model-{}".format(timestamp)
       end2endmodel_2 = model_from_json(json.loads(open("./models_dir/{}.json".format(model_fname),'r')),custom_objects={'L2Normalize':L2Normalize} )
       end2endmodel_2.load_weights(args.model_file)
-      print("dense_1 wts: \n", end2endmodel_2.get_layer('dense_1').get_weights())
+      print("\ndense_1 wts: \n", end2endmodel_2.get_layer('dense_1').get_weights())
     except Exception as e:
       print (e)
     
