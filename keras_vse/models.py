@@ -41,7 +41,7 @@ def concept_detector(model_file,glove_file, input_length ,data_vocab ,token_coun
             img_enc_weights = load_pretrained_parameters(model_file)
         image_encoder,image_feat_extractor = build_image_encoder(weights=img_enc_weights,  
                                                                  embedding_dim=1024, normalize=True)
-        concept_detector_scores = Dense(num_classes )(image_encoder)
+        concept_detector_scores = Dense(num_classes )(image_encoder.outputs[0])
         image_encoder.compile(optimizer='nadam', loss='mse')
         end_to_end_model = Model(inputs= [image_feat_extractor.inputs[0] ],
                              outputs = concept_detector_scores)
