@@ -15,9 +15,15 @@ from keras_image_caption_data_generator import MultimodalInputDataGenerator as d
 from keras.preprocessing.image import ImageDataGenerator as IDG
 from models import concept_detector
 
+try:
+    import cPickle as pkl
+except ImportError:
+    import pickle as pkl
+
 from keras import backend  as K
 
 import tensorflow as tf
+
 
 
 if 'tensorflow' == K.backend():
@@ -66,18 +72,24 @@ if __name__ == '__main__':
 
     #Depending on the source data copy the images to local storage  a subdir of /export/u10 
     dataset_localized = False
+    timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
     if args.source_dataset=="GI":
       KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
       regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links(.*)'
       LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared"
       replace_regex_exp = r'/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared\1'
       #Use bash script to crop and resize the images
-      try:
-        os.system("resize_and_copy_local.sh valid_images_unique.txt" )
-        #copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
-        dataset_localized = True
-      except Exception as e:
-        dataset_localized = False
+      if not os.path.exists (osp(LOCAL_STORAGE_DIR,"successful_local_clone")):
+        try:
+          os.system("resize_and_copy_local.sh valid_images_unique.txt" )
+          #copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+          dataset_localized = True
+          with open(osp(LOCAL_STORAGE_DIR,"successful_local_clone"),"w") as fh:
+            fh.write(timestamp+"\n")
+
+
+        except Exception as e:
+          dataset_localized = False
 
     elif args.source_dataset=="VG":
       KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data"
@@ -180,7 +192,7 @@ if __name__ == '__main__':
       print(train_df.shape)
     new_class_counts = train_df["class"].value_counts()
     new_class_counts.to_csv("class_counts.csv")
-    timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
+    
 
     # Given image captions read from csv , compile the vocab(list of tokens)  for encoding the captions
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
@@ -190,6 +202,8 @@ if __name__ == '__main__':
     print (type(texts[0]))
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
+    with open('keras_captiontokenizer_{}.pkl'.format(train_file_id),"wb")  as kfh:
+      pkl.dump(tokenizer, kfh, protocol=pkl.HIGHEST_PROTOCOL)
     
     # Define  the whole model
     end2endmodel, vocab_map = \
@@ -244,10 +258,10 @@ if __name__ == '__main__':
       print (  train_df.describe())
       train_data_it = train_datagen.flow_from_dataframe( 
                               dataframe= train_df,
-                              directory= imagedir_root,
+                              directory= None,
                               x_col="filenames", y_col="class", has_ext=True,
                               target_size=(256, 256), color_mode='rgb',
-                              classes=classnames, class_mode='categorical',
+                              classes=None, class_mode='categorical',
                               batch_size=32, shuffle=False, seed=None,
                               save_to_dir=None,
                               save_prefix='',
