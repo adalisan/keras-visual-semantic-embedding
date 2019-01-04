@@ -18,6 +18,10 @@ import json
 import tensorflow as tf
 
 
+try:
+    import cPickle as pkl
+except ImportError:
+    import pickle as pkl
 
 if 'tensorflow' == K.backend():
 
@@ -32,7 +36,8 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser('Visual semantic embeddings')
     parser.add_argument('--model_file', type=str,default = None)
-    parser.add_argument('--train_csv_file', type=str)
+    parser.add_argument('--test_csv_file', type=str)
+    parser.add_argument('--tokenizer_pkl_file_id', dest="train_file_id", type=str)
     parser.add_argument('--glove_embed_file',
       default="/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt" , type=str)
     parser.add_argument('--length', type=int, default=None)
@@ -80,16 +85,16 @@ if __name__ == '__main__':
     #check_gpu_availability()
     #session = tf.Session(config=config)
     set_session(tf.Session(config=config))
-    train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
+    test_df = pd.read_csv(args.test_csv_file, encoding='utf8')
     if verbose:
       print("CSV file columnar data types")
-      print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
-    texts = train_df["image_captions"].values.tolist()
+      print( test_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
+    texts = test_df["image_captions"].values.tolist()
     if has_labels:
-      class_names_pd =  pd.unique(train_df["class"].values)
+      class_names_pd =  pd.unique(test_df["class"].values)
       init_classnames =class_names_pd.tolist()
     
-      class_counts = train_df["class"].value_counts()
+      class_counts = test_df["class"].value_counts()
       class_counts.to_csv("class_counts.csv")
       class_ct_threshold = 50
     
@@ -97,27 +102,31 @@ if __name__ == '__main__':
       untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
       if verbose:
         print ("Removed classes:\n",  untrainable_classnames)
-        print ("length of train_df",len(train_df))
-      train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
-      print ("new examplar count {}".format(len(train_df)))
+        print ("length of test_df",len(test_df))
+      test_df = test_df.loc[~test_df['class'].isin(untrainable_classnames),:]
+      print ("new examplar count {}".format(len(test_df)))
 
       classnames= [k for k in init_classnames if k not in untrainable_classnames] 
       if verbose:
         print("Num of classes ")
         print (len(classnames))
-      new_class_counts = train_df["class"].value_counts()
+      new_class_counts = test_df["class"].value_counts()
       new_class_counts.to_csv("class_counts.csv")
     if dataset_localized:
-      train_df =train_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
+      test_df =test_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
     
     if verbose:
       print("Dimensions of training set dataframe")
-      print(train_df.shape)
+      print(test_df.shape)
 
 
 
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
-    tokenizer = Tokenizer(num_words=args.maxtokencount)
+    test_tokenizer = Tokenizer(num_words=args.maxtokencount)
+
+
+    with open('keras_captiontokenizer_{}.pkl'.format(train_file_id),"rb")  as kfh:
+      tokenizer = pkl.load(kfh)
     tokenizer.fit_on_texts(texts_ascii)
     
     print (type(texts[0]))
@@ -165,7 +174,7 @@ if __name__ == '__main__':
     print(type(test_datagen))
     if  args.image_only_model:
       test_data_it = test_datagen.flow_from_dataframe( 
-                              dataframe= train_df,
+                              dataframe= test_df,
                               directory= None,
                               x_col="filenames", 
                               y_col="class" if has_labels else None, 
@@ -182,7 +191,7 @@ if __name__ == '__main__':
                               follow_links= True)
     else:
       test_data_it = test_datagen.flow_from_dataframe( 
-                                                        dataframe= train_df,
+                                                        dataframe= test_df,
                                                         directory= None,
                                                         x_col=["filenames","image_captions"], 
                                                         y_col="class" if has_labels else None, 
@@ -199,7 +208,7 @@ if __name__ == '__main__':
                                                         cap_token_vocab=word_index,
                                                         num_tokens = len(word_index),
                                                         follow_links= True)
-    predictions = end2endmodel.predict_generator(test_data_it)
+   # predictions = end2endmodel.predict_generator(test_data_it)
     preds_out = open("preds_out.txt","w")
     for pr in predictions:
       print(pr)
