@@ -243,7 +243,7 @@ class DataFramewithMultiModalInputIterator(Iterator):
                                 " x_col has extensions,else False.")
         self.df = dataframe.copy()
         if y_col == "":
-            self.df.assign(placeholder = pd.Series("classname",index=df.index))
+            self.df.assign(placeholder = pd.Series("classname",index=dataframe.index))
             y_col = "placeholder"
 
 
