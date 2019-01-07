@@ -366,9 +366,7 @@ class DataFramewithMultiModalInputIterator(Iterator):
         else:
             print('Found %d images.' % self.samples)
         self.captions= list(self.df[x_cols[1]])
-        print ("first caption")
-        print (self.captions[0])
-        print(type(self.captions))
+
         super(DataFramewithMultiModalInputIterator, self).__init__(self.samples,
                                                 batch_size,
                                                 shuffle,
