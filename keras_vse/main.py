@@ -171,8 +171,8 @@ if __name__ == '__main__':
   init_classnames =class_names_pd.tolist()
   
   class_counts = train_df["class"].value_counts()
-  class_counts.to_csv("class_counts.csv")
-  class_ct_threshold = 50
+  class_counts.to_csv("class_counts_orig.csv")
+  class_ct_threshold = 200
   
   #REmove any classes that have less # of examples than class_ct_threshold
   untrainable_classes    = class_counts < class_ct_threshold 
