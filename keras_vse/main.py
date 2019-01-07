@@ -243,13 +243,13 @@ if __name__ == '__main__':
   train_batch_size = 32 
   if args.image_only_model:
     if args.dataaug:
-      train_datagen = IDG(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+      train_datagen = IDG(width_shift_range = 0.2,zoom_range=0.2, height_shift_range=0.3 )
     else:
       train_datagen = IDG()
   else:
     if args.dataaug:
-      train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
-      train_batch_size = 16
+      train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2, height_shift_range=0.3, rounds =3 )
+      train_batch_size = 24
     else:
       train_datagen = datagen()
   if  args.image_only_model:
@@ -297,7 +297,7 @@ if __name__ == '__main__':
                                 
 
   # Run the actual training  
-  model_ckpt = ModelCheckpoint(filepath='./models_dir/{train_file_id}-weights.{epoch:02d}',monitor= "loss")
+  model_ckpt = ModelCheckpoint(filepath='./models_dir/ckpt_model-weights.{epoch:02d}',monitor= "loss")
   callbacks_list = [model_ckpt]
   if debug:
     end2endmodel.fit_generator(train_data_it,steps_per_epoch=200)
