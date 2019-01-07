@@ -213,7 +213,24 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
     train_df = pd.DataFrame(data=dict({"filenames":np.array([],dtype="<U2"),
                                     "image_captions":np.array([],dtype="<U2"),
                                     "class":np.array([],dtype="<U2")}))
-
+    
+    seedling_testable_classes = {
+        "OI-airplane":"Airplane" ,
+         "OI-missile":"Buk_missile",
+         "OI-fighter_aircraft":"Fighter_aircraft",
+         "OI-handgun" : "Gun",
+         "OI-shotgun" : "Gun",
+         "OI-machine_gun": "Gun",
+    "OI-assault_rifle":"Gun",
+    "OI-gun": "Gun",
+    "VS-rifle": "Gun",
+    "OI-rifle": "Gun",
+    "OI-helicopter":"Helicopter",
+    "OI-protest": "MarchProtestPoliticalGathering",
+    "OI-police_officer" : "Police",
+    "OI-sniper_rifle": "Sniper",
+    "OI-truck" :"Truck"
+    }
     import gensim.downloader as api
     
     try:
@@ -241,6 +258,9 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
             img_id,classes_str =line.split(',')
             classes_str= classes_str.strip()
             classnames = classes_str.split(' ')
+            generic_seedling_classnames =  [ seedling_testable_classes[cl] for cl in classnames if cl in seedling_testable_classes.keys()]
+            classnames.extend(generic_seedling_classnames)
+
             img_id_classname_dict[img_id] = classnames
             tokens = []
             
