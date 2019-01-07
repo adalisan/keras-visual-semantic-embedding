@@ -17,3 +17,7 @@ keras_vse/keras_vse_runlog*.txt
 *.bak
 logs
 output
+keras_vse/*.txt
+keras_vse/models_dir/*.json
+*.zip
+ckpt_model*
