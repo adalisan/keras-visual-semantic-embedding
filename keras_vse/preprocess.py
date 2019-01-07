@@ -259,19 +259,21 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
             classes_str= classes_str.strip()
             classnames = classes_str.split(' ')
             generic_seedling_classnames =  [ seedling_testable_classes[cl] for cl in classnames if cl in seedling_testable_classes.keys()]
-            classnames.extend(generic_seedling_classnames)
+            
 
             img_id_classname_dict[img_id] = classnames
             tokens = []
             
             src_tokens_pairs  = [cl.split('-') for cl in classnames ]
+            classnames.extend(generic_seedling_classnames)
+            
             for pair in src_tokens_pairs:
                 if len(pair)>1:
                     tokens.append(pair[1])
                 else:
                     print("weird classname")
                     print(pair)
-
+            
             #glove.most_similar('token', )
             dummy_caption = ""
             
