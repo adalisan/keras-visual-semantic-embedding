@@ -1,0 +1,9 @@
+#! /usr/bin/env bash
+
+timestamp="$(date +"%T")"
+python3 test.py --test_csv_file GI_keras_train_qa.csv --fix_gpu 1  \
+                --image_only_model \
+                --model_file  /nfs/mercury-11/u113/projects/AIDA/aida_visual_concepts_in_context/video/visual-concept-detection/visual-semantic-embedding/keras_vse/models_dir/GI_keras_train_qa_image_only_epoch_5_keras_vse_model-2019_01_07_10_55.h5 \
+                --tokenizer_pkl_file_id GI_keras_train_qa_image_only_epoch_5 \
+                --model_train_timestamp 2019_01_07_20_51 \
+                --glove_embed_file /nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt.pkl  | tee -a GI_keras_vse_runlog_image_only_test_$timestamp.txt
