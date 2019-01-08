@@ -72,21 +72,21 @@ if __name__ == '__main__':
     gpu_id = 1
     gpu_id_str = str(int(gpu_id)) 
     if args.fix_gpu >= 0:
-            print ("Overwriting gpu id from cfg file with given arg {}".format(args.fix_gpu))
-            gpu_id_str = str(args.fix_gpu)
+        print ("Overwriting gpu id from cfg file with given arg {}".format(args.fix_gpu))
+        gpu_id_str = str(args.fix_gpu)
     #%% 
     
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = gpu_id_str
     def check_gpu_availability():
-            print ("checking if gpus  are available and seen by keras/tf")
-            from tensorflow.python.client import device_lib
-            assert 'GPU' in str(device_lib.list_local_devices())
+        print ("checking if gpus  are available and seen by keras/tf")
+        from tensorflow.python.client import device_lib
+        assert 'GPU' in str(device_lib.list_local_devices())
 
-            # confirm Keras sees the GPU
-    
-            assert len(K.tensorflow_backend._get_available_gpus()) > 0
+        # confirm Keras sees the GPU
+
+        assert len(K.tensorflow_backend._get_available_gpus()) > 0
 
     #check_gpu_availability()
     #session = tf.Session(config=config)
@@ -204,7 +204,7 @@ if __name__ == '__main__':
                                                         y_col="class" if has_labels else None, 
                                                         has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
-                                                            class_mode=None,
+                                                        class_mode=None,
                                                         batch_size=batch_size, shuffle=False, seed=None,
                                                         save_to_dir=None,
                                                         save_prefix='',
@@ -215,23 +215,23 @@ if __name__ == '__main__':
                                                         follow_links= True)
     else:
         test_data_it = test_datagen.flow_from_dataframe( 
-                                                                                                            dataframe= test_df,
-                                                                                                            directory= None,
-                                                                                                            x_col=["filenames","image_captions"], 
-                                                                                                            y_col="class" if has_labels else None, 
-                                                                                                            has_ext=True,
-                                                                                                            target_size=(256, 256), color_mode='rgb',
-                                                                                                            class_mode=None,
-                                                                                                            batch_size=batch_size , shuffle=False, seed=None,
-                                                                                                            save_to_dir=None,
-                                                                                                            save_prefix='',
-                                                                                                            save_format='png',
-                                                                                                            subset=None,
-                                                                                                            interpolation='nearest',
-                                                                                                            sort=False,
-                                                                                                            cap_token_vocab=word_index,
-                                                                                                            num_tokens = len(word_index),
-                                                                                                            follow_links= True)
+                                                        dataframe= test_df,
+                                                        directory= None,
+                                                        x_col=["filenames","image_captions"], 
+                                                        y_col="class" if has_labels else None, 
+                                                        has_ext=True,
+                                                        target_size=(256, 256), color_mode='rgb',
+                                                        class_mode=None,
+                                                        batch_size=batch_size , shuffle=False, seed=None,
+                                                        save_to_dir=None,
+                                                        save_prefix='',
+                                                        save_format='png',
+                                                        subset=None,
+                                                        interpolation='nearest',
+                                                        sort=False,
+                                                        cap_token_vocab=word_index,
+                                                        num_tokens = len(word_index),
+                                                        follow_links= True)
     # predictions = end2endmodel.predict_generator(test_data_it)
     # preds_out = open("preds_out.txt","w")
     # for pr in predictions:
@@ -251,8 +251,8 @@ if __name__ == '__main__':
         for b_i,f in enumerate(files_in_batch):
             concept_score_triples = []
             for k,v in class_indices_for_model.items():
-                    new_tri= (k,preds_out[b_i,v],preds_out[b_i,v])
-                    concept_score_triples.append(new_tri)
+                new_tri= (k,preds_out[b_i,v],preds_out[b_i,v])
+                concept_score_triples.append(new_tri)
             caption_image(f, concept_score_triples, output_dir, 
                 caption_threshold = 0.3 ,trans_dict=None)
         batch_ctr += 1
