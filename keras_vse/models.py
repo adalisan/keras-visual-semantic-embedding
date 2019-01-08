@@ -1,9 +1,8 @@
-#!/usr/bin/env python3
 #encoding: utf-8
 import numpy as np
 import six
 from keras import backend as K
-from keras.layers import Convolution2D, Dense, Embedding, GRU, Input,Concatenate
+from keras.layers import Convolution2D, Dense, Embedding, GRU, Input,Concatenate, Dropout
 from keras.models import Model, Sequential
 from keras.applications.vgg19 import VGG19
 from layers import L2Normalize
@@ -29,8 +28,9 @@ import h5py
 #     def save()
 #         ModelwithMetadata
 
-def concept_detector(model_file,glove_file, input_length ,data_vocab ,token_count,num_classes, 
-                     image_only_model =False):
+def concept_detector(model_file, glove_file, input_length ,data_vocab ,
+                     token_count, num_classes, 
+                     image_only_model =False,dropout_before_final = 0.0):
 
         
         #, embedding_weights, gru_weights, init_vocab_map = 
@@ -41,7 +41,11 @@ def concept_detector(model_file,glove_file, input_length ,data_vocab ,token_coun
             img_enc_weights = load_pretrained_parameters(model_file)
         image_encoder,image_feat_extractor = build_image_encoder(weights=img_enc_weights,  
                                                                  embedding_dim=1024, normalize=True)
-        concept_detector_scores = Dense(num_classes )(image_encoder.outputs[0])
+        if dropout_before_final> 0.0 :
+            image_encoder_out = Dropout(dropout_before_final) (image_encoder.outputs[0])
+        else:
+            image_encoder_out = image_encoder.outputs[0]
+        concept_detector_scores = Dense(num_classes, activation="sigmoid" )(image_encoder_out)
         image_encoder.compile(optimizer='nadam', loss='mse')
         end_to_end_model = Model(inputs= [image_feat_extractor.inputs[0] ],
                              outputs = concept_detector_scores)
@@ -53,11 +57,14 @@ def concept_detector(model_file,glove_file, input_length ,data_vocab ,token_coun
                                 data_vocab = data_vocab,token_count=token_count)
     captioned_image_descriptor  = Concatenate(axis=-1)([image_encoder.outputs[0],
                                                         sentence_encoder.outputs[0]])
+    if dropout_before_final > 0.0 :
+        captioned_image_descriptor = Dropout(dropout_before_final) (captioned_image_descriptor)
 
-    concept_detector_scores = Dense(num_classes )(captioned_image_descriptor)
+    concept_detector_scores = Dense(num_classes , activation="sigmoid")(captioned_image_descriptor)
     for enc in image_encoder, sentence_encoder:
         enc.compile(optimizer='nadam', loss='mse')
-    end_to_end_model = Model(inputs= [image_feat_extractor.inputs[0] ,sentence_encoder.inputs[0]],
+    end_to_end_model = Model(inputs= [image_feat_extractor.inputs[0] ,
+                                      sentence_encoder.inputs[0]],
                              outputs = concept_detector_scores)
     plot_model(end_to_end_model, to_file='model.png')
     return end_to_end_model,vocab_map
