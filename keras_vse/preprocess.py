@@ -206,8 +206,10 @@ def get_similar(model,tok,topn):
     else:
         return model.most_similar(tok,topn=topn)
 
-def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_Concepts/Combined_OpenCorpora_new_OI_Sing_VW_train_labels.csv",
-                         img_id_imgpath_csv= "/nfs/mercury-11/u113/projects/AIDA/Comb_YT8m_Sing_newOI.part" , sim_thres =0.6,
+def get_img_concepts_OI( caption_vocab ,
+                         class_labels_csv = "../../Corpora_and_Concepts/Combined_OpenCorpora_new_OI_Sing_VW_train_labels.csv",
+                         img_id_imgpath_csv= "/nfs/mercury-11/u113/projects/AIDA/Comb_YT8m_Sing_newOI.part" ,
+                         sim_thres =0.6,
                          glove_model_file = "/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt"):
 
     train_df = pd.DataFrame(data=dict({"filenames":np.array([],dtype="<U2"),
@@ -276,8 +278,19 @@ def get_img_concepts_OI(  caption_vocab , class_labels_csv = "../../Corpora_and_
             
             #glove.most_similar('token', )
             dummy_caption = ""
-            
-            similar_tokens_list = [get_similar(word2vec_model,tok,topn=topn) for tok in tokens ]
+            looked_up_tokens = dict()
+            for tok in tokens:
+                if tok in looked_up_tokens.keys():
+                    similar_tokens = looked_up_tokens[tok] 
+                    similar_tokens_list.append(similar_tokens)
+                else:
+                    looked_up_tokens[tok] = get_similar(word2vec_model,tok, topn=topn) 
+                    similar_tokens_list.append(similar_tokens)
+
+
+
+
+            #similar_tokens_list = [get_similar(word2vec_model,tok,topn=topn) for tok in tokens ]
             token_ct = 0
             for similar_tokens in similar_tokens_list:
                 for similar_token,similarity in similar_tokens:
