@@ -177,7 +177,7 @@ if __name__ == '__main__':
     init_classnames =class_names_pd.tolist()
     
     class_counts = train_df["class"].value_counts()
-    class_counts.to_csv("class_counts_orig.csv")
+    class_counts.to_csv("{}_class_counts_orig.csv".format(args.source_dataset))
     class_ct_threshold = 200
     
     #REmove any classes that have less # of examples than class_ct_threshold
@@ -199,7 +199,7 @@ if __name__ == '__main__':
         print("Dimensions of training set dataframe")
         print(train_df.shape)
     new_class_counts = train_df["class"].value_counts()
-    new_class_counts.to_csv("class_counts.csv")
+    new_class_counts.to_csv("{}_class_counts.csv".format(args.source_dataset))
     
 
     # Given image captions read from csv , compile the vocab(list of tokens)  for encoding the captions
