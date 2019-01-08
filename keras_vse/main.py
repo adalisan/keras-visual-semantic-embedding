@@ -217,7 +217,8 @@ if __name__ == '__main__':
                                         num_classes= len(classnames),
                                         image_only_model =args.image_only_model )
     optim_algo=Nadam(lr=.004 ,clipnorm=1.)
-    end2endmodel.compile(optimizer=optim_algo, loss="categorical_crossentropy")
+    #end2endmodel.compile(optimizer=optim_algo, loss="categorical_crossentropy")
+    end2endmodel.compile(optimizer=optim_algo, loss="binary_crossentropy")
 
     # For debugging, print some weights
     with open("{}_trained_layer_weights_{}.txt".format(train_file_id,timestamp),"w") as fh:
