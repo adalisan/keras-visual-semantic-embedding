@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
 
     verbose =args.verbose
-    K.set_floatx('float16')
+    K.set_floatx('float32')
     batch_size = 32
 
     model_fname = "{}_keras_vse_model-{}".format(args.train_file_id,args.train_timestamp)
@@ -122,6 +122,7 @@ if __name__ == '__main__':
         with open ("./models_dir/{}_class_indices.json".format(model_fname),"r") as json_fh:
             class_indices_for_model = json.load(json_fh)
     except Exception as e:
+        print (e)
         class_dirs=os.listdir(KERAS_DATAGEN_DIR)
         classnames_ordered = np.sort(np.array(class_dirs)).tolist()
         print ("This is a temp hack.Should not be necessary if class_indices.json is available")
