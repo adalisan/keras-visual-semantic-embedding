@@ -5,7 +5,8 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-def caption_image(image_file_path,concept_score_triples,output_dir,caption_threshold = 0.1 ,trans_dict=None):
+def caption_image(image_file_path,concept_score_triples,output_dir,
+                caption_threshold = 0.1 ,trans_dict=None,true_classname=None):
     '''
     caption image with detected concepts and scores
     '''
@@ -18,6 +19,8 @@ def caption_image(image_file_path,concept_score_triples,output_dir,caption_thres
     plt.axis('off')
     plt.imshow(img)
     capt = ''
+    if true_classname is not None:
+        capt += "GT_annotation: {} ".format(true_classname)
     max_det = 5
     det = 0
     for triple in concept_score_triples:
@@ -34,5 +37,6 @@ def caption_image(image_file_path,concept_score_triples,output_dir,caption_thres
         capt += " | "+' '.join(triple_p)
         if det  >= max_det:
             break
+        
     plt.title(capt)
     plt.savefig(osp(output_dir,fileprefix+'.jpg'),bbox_inches="tight")
