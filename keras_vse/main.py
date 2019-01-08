@@ -29,7 +29,7 @@ import tensorflow as tf
 
 
 
-if 'tensorflow' == K.backend():
+if  K.backend() == 'tensorflow'  :
 
     from keras.backend.tensorflow_backend import set_session
 
@@ -64,6 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--run_prediction', default=False,  action="store_true")
     parser.add_argument('--source_dataset', default="GI",choices = ["GI","VG","OI","GCC"])
     parser.add_argument('--debug', default=False,  action="store_true")
+    parser.add_argument('--exp_id',default=None,type=str)
     
     
     args = parser.parse_args()
@@ -146,7 +147,10 @@ if __name__ == '__main__':
     if args.dataaug:
         train_file_id +='_aug'
     train_file_id +='_epoch_{}'.format(args.epoch)
-
+    if args.exp_id is not None:
+        output_id = args.exp_id+'_'+train_file_id
+    if not os.path.exists("./{}".format(output_id)):
+        os.makedirs(output_id)
     #Determine GPU number
     gpu_id = 1
     gpu_id_str = str(int(gpu_id)) 
@@ -206,7 +210,7 @@ if __name__ == '__main__':
     print (type(texts[0]))
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
-    with open('keras_captiontokenizer_{}.pkl'.format(train_file_id),"wb")  as kfh:
+    with open('./{}/keras_captiontokenizer_{}.pkl'.format(output_id,train_file_id),"wb")  as kfh:
         pkl.dump(tokenizer, kfh, protocol=pkl.HIGHEST_PROTOCOL)
     
     # Define  the whole model
@@ -221,7 +225,7 @@ if __name__ == '__main__':
     end2endmodel.compile(optimizer=optim_algo, loss="binary_crossentropy")
 
     # For debugging, print some weights
-    with open("{}_trained_layer_weights_{}.txt".format(train_file_id,timestamp),"w") as fh:
+    with open("./{}/{}_trained_layer_weights_{}.txt".format(output_id,train_file_id,timestamp),"w") as fh:
         fh.write("dense_1 wts: \n")
         fh.write(str( end2endmodel.get_layer('dense_1').get_weights()))
         if not args.image_only_model:
@@ -232,7 +236,7 @@ if __name__ == '__main__':
             fh.write("\nblock5_conv4 wts: \n")
             fh.write(str( end2endmodel.get_layer('block5_conv4').get_weights()))
             fh.write("\n")
-            with open("caption_vocab-{}_{}.txt".format(args.source_dataset,timestamp),"w") as v_fh:
+            with open("./{}/caption_vocab-{}_{}.txt".format(output_id,args.source_dataset,timestamp),"w") as v_fh:
                 for word in vocab_map:
                     v_fh.write("{}\n".format(word))
     
@@ -301,7 +305,7 @@ if __name__ == '__main__':
 
 
     # Run the actual training  
-    model_ckpt = ModelCheckpoint(filepath='./models_dir/ckpt_model-weights.{epoch:02d}',monitor= "loss")
+    model_ckpt = ModelCheckpoint(filepath='./models_dir/{0}/{1}_ckpt_model-weights.{{epoch:02d}}'.format(output_id,train_file_id),monitor= "loss")
     callbacks_list = [model_ckpt]
     if debug:
         end2endmodel.fit_generator(train_data_it,steps_per_epoch=200)
@@ -309,19 +313,19 @@ if __name__ == '__main__':
         end2endmodel.fit_generator(train_data_it,callbacks=callbacks_list, epochs=args.epoch)
     
     # save the model under models_dir
-    if not os.path.exists("models_dir"):
-        os.makedirs("models_dir")
+    if not os.path.exists("models_dir/{}".format(output_id)):
+        os.makedirs("models_dir/{}".format(output_id))
     model_fname = "{}_keras_vse_model-{}".format(train_file_id,timestamp)
-    end2endmodel.save("./models_dir/{}.h5".format(model_fname))
+    end2endmodel.save("./models_dir/{}/{}.h5".format(output_id,model_fname))
     try:
-        with open("./models_dir/{}.json".format(model_fname),"w") as json_fh:
+        with open("./models_dir/{}/{}.json".format(output_id,model_fname),"w") as json_fh:
             json_fh.write(end2endmodel.to_json()+"\n")
-        end2endmodel.save_weights("./models_dir/{}_weights.h5".format(model_fname))
+        end2endmodel.save_weights("./models_dir/{}/{}_weights.h5".format(output_id,model_fname))
     except Exception as e:
         print (e)
         print ("Unable to save model as json+h5 files")
     class_indices_for_model = train_data_it.class_indices
-    with open ("./models_dir/{}_class_indices.json".format(model_fname),"w") as json_fh:
+    with open ("./models_dir/{}/{}_class_indices.json".format(output_id,model_fname),"w") as json_fh:
         json.dump(class_indices_for_model,json_fh)
 
     #create a test data generator for testing/sanity-checking the trained model  using training data
@@ -377,7 +381,7 @@ if __name__ == '__main__':
     if test_preds_on_train_set:
         # Actually run the prediction on the training test.
         predictions = end2endmodel.predict_generator(test_data_it)
-        preds_out = open("{}_{}preds_out.txt".format(train_file_id,timestamp),"w")
+        preds_out = open("./{}/{}_{}preds_out.txt".format(output_id,train_file_id,timestamp),"w")
         for pr in predictions:
             print(pr)
             preds_out.write("{}\n".format(pr))
