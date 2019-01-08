@@ -155,7 +155,8 @@ if __name__ == '__main__':
 
 
     synynomys = pd.read_csv(args.synset_file, encoding='utf8', header = True)
-    recode_dict =dict
+    bbn_anno_labels= dict()
+    recode_dict =dict()
     set_of_tuples = dict()
     for row in synynomys.iterrows():
             generic_eng_name = row[0]
@@ -167,7 +168,14 @@ if __name__ == '__main__':
 
             syns = list(row[1:-1])
             if row[-1] != "":
-                    syns.append(row[-1])
+                bbn_label = row[-1]
+                syns.append(bbn_label)
+                # if bbn_label in bbn_anno_labels.keys():
+                #     bbn_anno_labels[bbn_label].append(row[0])
+                # else:
+                #     bbn_anno_labels[bbn_label] = [row[0]]
+                bbn_anno_labels[row[0]]=bbn_label
+
             set_of_tuples.update({row[0]:syns})
 
 
@@ -355,9 +363,11 @@ if __name__ == '__main__':
                 class_idx = y_values[b_i] 
             else:
                 class_idx = np.argmax(y_values[b_i,:])
+            gt_classname = model_classnames[class_idx] + \
+                           bbn_anno_labels.get(model_classnames[class_idx], "")
             caption_image(f, concept_score_triples, output_dir, 
                 caption_threshold = 0.3 ,trans_dict=None, 
-                true_classname = model_classnames[b_i])
+                true_classname = "{}")
         batch_ctr += 1
         if batch_ctr % 200 == 0 :
             print ("{}th batch of images used on model" .format(batch_ctr))
