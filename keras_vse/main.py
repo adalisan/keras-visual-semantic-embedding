@@ -5,6 +5,7 @@ import argparse
 import datetime
 from os.path import join as osp
 from shutil import copytree, rmtree
+import json
 from models import encode_sentences
 from models import build_pretrained_models
 import pandas as pd
@@ -248,7 +249,7 @@ if __name__ == '__main__':
             train_datagen = IDG()
     else:
         if args.dataaug:
-            train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2, height_shift_range=0.3, rounds =3 )
+            train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2, height_shift_range=0.3, rounds = 3 )
             train_batch_size = 24
         else:
             train_datagen = datagen()
@@ -318,7 +319,7 @@ if __name__ == '__main__':
         print ("Unable to save model as json+h5 files")
     class_indices_for_model = train_data_it.class_indices
     with open ("./models_dir/{}_class_indices.json".format(model_fname),"w") as json_fh:
-        json_fh.write(class_indices_for_model)
+        json.dump(class_indices_for_model,json_fh)
 
     #create a test data generator for testing/sanity-checking the trained model  using training data
     test_datagen = None
@@ -339,7 +340,7 @@ if __name__ == '__main__':
                                                         directory= None,
                                                         x_col="filenames", y_col="class", has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
-                                                            class_mode=None,
+                                                        class_mode=None,
                                                         batch_size=32, shuffle=False, seed=None,
                                                         save_to_dir=None,
                                                         save_prefix='',
@@ -355,7 +356,7 @@ if __name__ == '__main__':
                                                         x_col=["filenames","image_captions"], 
                                                         y_col="class", has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
-                                                            class_mode=None,
+                                                        class_mode=None,
                                                         batch_size=32, shuffle=False, seed=None,
                                                         save_to_dir=None,
                                                         save_prefix='',
