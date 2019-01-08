@@ -17,6 +17,7 @@ from keras.preprocessing.image import ImageDataGenerator as IDG
 from keras.callbacks import ModelCheckpoint
 from models import concept_detector
 
+
 try:
     import cPickle as pkl
 except ImportError:
@@ -248,6 +249,7 @@ if __name__ == '__main__':
         else:
             train_datagen = IDG()
     else:
+        train_batch_size = 24
         if args.dataaug:
             train_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2, height_shift_range=0.3, rounds = 3 )
             train_batch_size = 24
