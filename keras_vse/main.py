@@ -62,10 +62,10 @@ if __name__ == '__main__':
     parser.add_argument('--image_only_model', default=False,  action="store_true")
     parser.add_argument('--no_training', default=False,  action="store_true")
     parser.add_argument('--run_prediction', default=False,  action="store_true")
-    parser.add_argument('--source_dataset', default="GI",choices = ["GI","VG","OI","GCC"])
+    parser.add_argument('--source_dataset', default="GI", choices = ["GI","VG","OI","GCC"])
     parser.add_argument('--debug', default=False,  action="store_true")
-    parser.add_argument('--exp_id',default=None,type=str)
-    
+    parser.add_argument('--exp_id', default=None,type=str)
+    parser.add_argument('--final_act_layer', default= "softmax", choices = ["softmax" ,"sigmoid"], type=str)
     
     args = parser.parse_args()
     
@@ -200,6 +200,8 @@ if __name__ == '__main__':
         print(train_df.shape)
     new_class_counts = train_df["class"].value_counts()
     new_class_counts.to_csv("{}_class_counts.csv".format(args.source_dataset))
+    with open("./models_dir/{train_file_id}_classnames.json") as json_fh:
+        json.dump(dict(zip(classnames,range(len(classnames)))),json_fh)
     
 
     # Given image captions read from csv , compile the vocab(list of tokens)  for encoding the captions
@@ -219,7 +221,8 @@ if __name__ == '__main__':
                                         input_length=args.length, data_vocab = word_index,
                                         token_count = len(word_index),
                                         num_classes= len(classnames),
-                                        image_only_model =args.image_only_model )
+                                        image_only_model =args.image_only_model ,
+                                        final_act = args.final_act_layer)
     optim_algo=Nadam(lr=.004 ,clipnorm=1.)
     #end2endmodel.compile(optimizer=optim_algo, loss="categorical_crossentropy")
     end2endmodel.compile(optimizer=optim_algo, loss="binary_crossentropy")
@@ -307,26 +310,35 @@ if __name__ == '__main__':
     # Run the actual training  
     model_ckpt = ModelCheckpoint(filepath='./models_dir/{0}/{1}_ckpt_model-weights.{{epoch:02d}}'.format(output_id,train_file_id),monitor= "loss")
     callbacks_list = [model_ckpt]
+
+    # save the model config under models_dir as json
+    if not os.path.exists("models_dir/{}".format(output_id)):
+        os.makedirs("models_dir/{}".format(output_id))
+    try:
+        with open("./models_dir/{}/{}.json".format(output_id,model_fname),"w") as json_fh:
+            json_fh.write(end2endmodel.to_json()+"\n")
+    except Exception as e:
+        print (e)
+        print ("Unable to save model as json files")
+
     if debug:
         end2endmodel.fit_generator(train_data_it,steps_per_epoch=200)
     else:
         end2endmodel.fit_generator(train_data_it,callbacks=callbacks_list, epochs=args.epoch)
     
-    # save the model under models_dir
-    if not os.path.exists("models_dir/{}".format(output_id)):
-        os.makedirs("models_dir/{}".format(output_id))
     model_fname = "{}_keras_vse_model-{}".format(train_file_id,timestamp)
+    # save the model under models_dir
     end2endmodel.save("./models_dir/{}/{}.h5".format(output_id,model_fname))
     try:
-        with open("./models_dir/{}/{}.json".format(output_id,model_fname),"w") as json_fh:
+        with open("./models_dir/{}/{}.json".format(output_id , model_fname),"w") as json_fh:
             json_fh.write(end2endmodel.to_json()+"\n")
-        end2endmodel.save_weights("./models_dir/{}/{}_weights.h5".format(output_id,model_fname))
+        end2endmodel.save_weights("./models_dir/{}/{}_weights.h5".format(output_id, model_fname))
     except Exception as e:
         print (e)
         print ("Unable to save model as json+h5 files")
     class_indices_for_model = train_data_it.class_indices
-    with open ("./models_dir/{}/{}_class_indices.json".format(output_id,model_fname),"w") as json_fh:
-        json.dump(class_indices_for_model,json_fh)
+    with open ("./models_dir/{}/{}_class_indices.json".format(output_id, model_fname),"w") as json_fh:
+        json.dump(dict(train_data_it.class_indices),json_fh)
 
     #create a test data generator for testing/sanity-checking the trained model  using training data
     test_datagen = None
