@@ -30,7 +30,8 @@ import h5py
 
 def concept_detector(model_file, glove_file, input_length ,data_vocab ,
                      token_count, num_classes, 
-                     image_only_model =False,dropout_before_final = 0.0):
+                     image_only_model =False,dropout_before_final = 0.0,
+                     final_act="sigmoid"):
 
         
         #, embedding_weights, gru_weights, init_vocab_map = 
@@ -45,7 +46,7 @@ def concept_detector(model_file, glove_file, input_length ,data_vocab ,
             image_encoder_out = Dropout(dropout_before_final) (image_encoder.outputs[0])
         else:
             image_encoder_out = image_encoder.outputs[0]
-        concept_detector_scores = Dense(num_classes, activation="sigmoid" )(image_encoder_out)
+        concept_detector_scores = Dense(num_classes, activation=final_act )(image_encoder_out)
         image_encoder.compile(optimizer='nadam', loss='mse')
         end_to_end_model = Model(inputs= [image_feat_extractor.inputs[0] ],
                              outputs = concept_detector_scores)
@@ -60,7 +61,7 @@ def concept_detector(model_file, glove_file, input_length ,data_vocab ,
     if dropout_before_final > 0.0 :
         captioned_image_descriptor = Dropout(dropout_before_final) (captioned_image_descriptor)
 
-    concept_detector_scores = Dense(num_classes , activation="sigmoid")(captioned_image_descriptor)
+    concept_detector_scores = Dense(num_classes , activation=final_act)(captioned_image_descriptor)
     for enc in image_encoder, sentence_encoder:
         enc.compile(optimizer='nadam', loss='mse')
     end_to_end_model = Model(inputs= [image_feat_extractor.inputs[0] ,
