@@ -1,18 +1,5 @@
 #encoding: utf-8
-"""Modified version of ImageDataGenerator and DataframeIterator to yield both image numpy arrays and image captions from dataframe 
-    
-    
-    Raises:
-        ImportError -- must import pandas
-        ValueError -- input column names of dataframe must be strings
-        ValueError -- has_ext argument
-        ValueError -- [description]
-        ValueError -- [description]
-        ValueError -- [description]
-        ValueError -- [description]
-        TypeError -- [description]
 
-"""
 
 import os
 import numpy as np
@@ -28,6 +15,20 @@ import warnings
 
 
 class MultimodalInputDataGenerator(IDG):
+    """Modified version of ImageDataGenerator and DataframeIterator to yield both image numpy arrays and image captions from dataframe 
+        
+        
+        Raises:
+            ImportError -- must import pandas
+            ValueError -- input column names of dataframe must be strings
+            ValueError -- has_ext argument
+            ValueError -- [description]
+            ValueError -- [description]
+            ValueError -- [description]
+            ValueError -- [description]
+            TypeError -- [description]
+
+    """
 
     def __init__(self,num_patch_along_one_dimension=1,*args,**kwargs):
         
@@ -47,6 +48,7 @@ class MultimodalInputDataGenerator(IDG):
                             interpolation='nearest',
                             sort=True,
                             follow_links=True,
+                            drop_duplicates=False,
                             **kwargs):
         """Takes the dataframe and the path to a directory
          and generates batches of augmented/normalized data.
@@ -128,7 +130,7 @@ class MultimodalInputDataGenerator(IDG):
                                  subset=subset,
                                  interpolation=interpolation,
                                  sort=sort,
-                                 drop_duplicates=False,
+                                 drop_duplicates=drop_duplicates,
                                  follow_links= follow_links,
                                  **kwargs)
 
