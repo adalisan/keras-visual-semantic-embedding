@@ -226,7 +226,8 @@ if __name__ == '__main__':
                                         num_classes= len(classnames),
                                         image_only_model =args.image_only_model ,
                                         final_act = args.final_act_layer)
-    optim_algo=Nadam(lr=.004 ,clipnorm=1.)
+    #optim_algo=Nadam(lr=.004 ,clipnorm=1.)
+    optim_algo=Nadam(lr=.004 )
     #end2endmodel.compile(optimizer=optim_algo, loss="categorical_crossentropy")
     end2endmodel.compile(optimizer=optim_algo, loss="binary_crossentropy")
 
@@ -280,16 +281,9 @@ if __name__ == '__main__':
         print (  train_df.describe())
         img_arrays         = map (lambda x:np.expand_dims(img_to_array(load_img(x, target_size=(256, 256))), axis=0),sampled_rows["filenames"].values.tolist())
         #cap_encoded_arrays = map (lambda x:np.expand_dims(tokenizer.texts_to_matrix(x), axis=0), sampled_rows["image_captions"].values.tolist())
-        vis_input = np.concatenate(img_arrays,axis=0)
+        vis_input = np.concatenate(list(img_arrays),axis=0)
         #cap_input = np.concatenate(cap_encoded_arrays,axis=0)
 
-        ro_i = 0
-        for ro in sampled_rows.iterrows():
-            if ro_i ==0 :
-                print (ro)
-            vis_input[ro_i,:,:] = np.expand_dims(img_to_array(load_img(ro[1].values, target_size=(256, 256))), axis=0)
-            ro_i += 1
-            vis_samples_classes[ro_i] = ro[3]
         vis_input_list = [vis_input]
         
         
@@ -342,7 +336,7 @@ if __name__ == '__main__':
 
     # Run the actual training  
     model_ckpt = ModelCheckpoint(filepath='./models_dir/{0}/{1}_ckpt_model-weights.{{epoch:02d}}'.format(output_id,train_file_id),monitor= "loss")
-    tensorboard_logs_dir = "./models_dir/{0}/tb_logs"
+    tensorboard_logs_dir = "./models_dir/{0}/tb_logs_{1}".format(output_id,train_file_id)
     tb_callback = TensorBoard(log_dir = tensorboard_logs_dir,
                               embeddings_layer_names = ["l2_normalize_1","l2_normalize_2"],
                               embeddings_data=vis_input_list)
@@ -351,6 +345,7 @@ if __name__ == '__main__':
     # save the model config under models_dir as json
     if not os.path.exists("models_dir/{}".format(output_id)):
         os.makedirs("models_dir/{}".format(output_id))
+    model_fname = "{}_keras_vse_model-{}".format(train_file_id,timestamp)
     try:
         with open("./models_dir/{}/{}.json".format(output_id,model_fname),"w") as json_fh:
             json_fh.write(end2endmodel.to_json()+"\n")
@@ -363,7 +358,7 @@ if __name__ == '__main__':
     else:
         end2endmodel.fit_generator(train_data_it,callbacks=callbacks_list, epochs=args.epoch)
     
-    model_fname = "{}_keras_vse_model-{}".format(train_file_id,timestamp)
+    
     # save the model under models_dir
     end2endmodel.save("./models_dir/{}/{}.h5".format(output_id,model_fname))
     try:
