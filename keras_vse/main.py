@@ -9,12 +9,15 @@ import json
 from models import encode_sentences
 from models import build_pretrained_models
 import pandas as pd
+import numpy as np
+
 from keras.optimizers import Nadam
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
+from keras.preprocessing.image import  load_img,img_to_array
 from keras_image_caption_data_generator import MultimodalInputDataGenerator as datagen
 from keras.preprocessing.image import ImageDataGenerator as IDG
-from keras.callbacks import ModelCheckpoint
+from keras.callbacks import ModelCheckpoint, TensorBoard
 from models import concept_detector
 
 
@@ -200,7 +203,7 @@ if __name__ == '__main__':
         print(train_df.shape)
     new_class_counts = train_df["class"].value_counts()
     new_class_counts.to_csv("{}_class_counts.csv".format(args.source_dataset))
-    with open("./models_dir/{train_file_id}_classnames.json") as json_fh:
+    with open("./models_dir/{}_classnames.json".format(train_file_id),"w") as json_fh:
         json.dump(dict(zip(classnames,range(len(classnames)))),json_fh)
     
 
@@ -263,6 +266,10 @@ if __name__ == '__main__':
             train_batch_size = 24
         else:
             train_datagen = datagen()
+    vis_sample_size = 200
+    sampled_rows = train_df.sample(vis_sample_size)
+    vis_input =  np.zeros (shape=(vis_sample_size,256,256),dtype="float32")
+    vis_samples_classes= [""]*vis_sample_size
     if  args.image_only_model:
         if args.source_dataset == "GI":
             imagedir_root = LOCAL_STORAGE_DIR
@@ -271,6 +278,21 @@ if __name__ == '__main__':
         print (os.listdir(imagedir_root))
         print ("train_df columns")
         print (  train_df.describe())
+        img_arrays         = map (lambda x:np.expand_dims(img_to_array(load_img(x, target_size=(256, 256))), axis=0),sampled_rows["filenames"].values.tolist())
+        #cap_encoded_arrays = map (lambda x:np.expand_dims(tokenizer.texts_to_matrix(x), axis=0), sampled_rows["image_captions"].values.tolist())
+        vis_input = np.concatenate(img_arrays,axis=0)
+        #cap_input = np.concatenate(cap_encoded_arrays,axis=0)
+
+        ro_i = 0
+        for ro in sampled_rows.iterrows():
+            if ro_i ==0 :
+                print (ro)
+            vis_input[ro_i,:,:] = np.expand_dims(img_to_array(load_img(ro[1].values, target_size=(256, 256))), axis=0)
+            ro_i += 1
+            vis_samples_classes[ro_i] = ro[3]
+        vis_input_list = [vis_input]
+        
+        
         train_data_it = train_datagen.flow_from_dataframe( 
                                                         dataframe= train_df,
                                                         directory= None,
@@ -288,6 +310,17 @@ if __name__ == '__main__':
                     #                  follow_links= True
                                                         )
     else:
+        cap_input =  np.zeros (shape=(vis_sample_size,len(tokenizer.word_index)))
+        ro_i = 0
+        print ("type(sampled_rows)",type(sampled_rows))
+        img_arrays         = map (lambda x:np.expand_dims(img_to_array(load_img(x, target_size=(256, 256))), axis=0),sampled_rows["filenames"].values.tolist())
+        cap_input = tokenizer.texts_to_matrix(sampled_rows["image_captions"].values.tolist())
+        #cap_encoded_arrays = map (lambda x:np.expand_dims(tokenizer.texts_to_matrix(x), axis=0), )
+        print (type(img_arrays))
+        vis_input = np.concatenate(list(img_arrays),axis=0)
+        #cap_input = np.concatenate(list(cap_encoded_arrays),axis=0)
+        
+        vis_input_list = [vis_input,cap_input]
         train_data_it = train_datagen.flow_from_dataframe( 
                                                         dataframe= train_df,
                                                         directory= None,
@@ -309,7 +342,11 @@ if __name__ == '__main__':
 
     # Run the actual training  
     model_ckpt = ModelCheckpoint(filepath='./models_dir/{0}/{1}_ckpt_model-weights.{{epoch:02d}}'.format(output_id,train_file_id),monitor= "loss")
-    callbacks_list = [model_ckpt]
+    tensorboard_logs_dir = "./models_dir/{0}/tb_logs"
+    tb_callback = TensorBoard(log_dir = tensorboard_logs_dir,
+                              embeddings_layer_names = ["l2_normalize_1","l2_normalize_2"],
+                              embeddings_data=vis_input_list)
+    callbacks_list = [model_ckpt,tb_callback]
 
     # save the model config under models_dir as json
     if not os.path.exists("models_dir/{}".format(output_id)):
