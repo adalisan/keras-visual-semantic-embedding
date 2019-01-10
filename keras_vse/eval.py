@@ -196,8 +196,8 @@ if __name__ == '__main__':
     untrainable_classes    = class_counts < class_ct_threshold 
     untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
     if verbose:
-        print(untrainable_classnames)
-        print (len(test_df))
+            print ("Removed classes:\n",  untrainable_classnames)
+            print ("length of test_df",len(test_df))
     test_df = test_df.loc[~test_df['class'].isin(untrainable_classnames),:]
 
     #Update the filepaths if images were copied to local storage
@@ -367,7 +367,7 @@ if __name__ == '__main__':
                            bbn_anno_labels.get(model_classnames[class_idx], "")
             caption_image(f, concept_score_triples, output_dir, 
                 caption_threshold = 0.3 ,trans_dict=None, 
-                true_classname = "{}")
+                true_classname = gt_classname)
         batch_ctr += 1
         if batch_ctr % 200 == 0 :
             print ("{}th batch of images used on model" .format(batch_ctr))
