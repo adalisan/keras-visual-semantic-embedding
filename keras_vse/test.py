@@ -3,6 +3,11 @@
 
 import os ,sys
 import argparse
+import datetime
+from os.path import join as osp
+from os.path import exists as ose
+from shutil import copytree, rmtree
+import json
 import numpy as np
 from models import encode_sentences
 from models import build_pretrained_models
@@ -38,6 +43,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser('Visual semantic embeddings')
     parser.add_argument('--model_file', type=str,default = None)
     parser.add_argument('--test_csv_file', type=str)
+    parser.add_argument('--source_dataset', type=str)
     parser.add_argument('--tokenizer_pkl_file_id', dest="train_file_id", type=str)
     parser.add_argument('--model_train_timestamp', dest="train_timestamp", type=str)
     parser.add_argument('--glove_embed_file',
@@ -48,25 +54,82 @@ if __name__ == '__main__':
     parser.add_argument('--fix_gpu', type=int, default=-1)
     parser.add_argument('--verbose', default=False,  action="store_true")
     parser.add_argument('--image_only_model', default=False,  action="store_true")
+    parser.add_argument('--restore_checkpoint', default=False,  action="store_true")
     
     args = parser.parse_args()
 
-
+    debug = False
     verbose =args.verbose
     K.set_floatx('float32')
     batch_size = 32
 
     model_fname = "{}_keras_vse_model-{}".format(args.train_file_id,args.train_timestamp)
 
-    KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
-    regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links(.*)'
-    LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared"
-    replace_regex_exp = r'/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared\1'
+    #Depending on the source data copy the images to local storage  a subdir of /export/u10 
+    dataset_localized = False
+    timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
+    if args.source_dataset=="GI":
+        KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
+        regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links(.*)'
+        LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared"
+        replace_regex_exp = r'/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared\1'
     # try:
-    #   copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+        if not os.path.exists (osp(LOCAL_STORAGE_DIR,"successful_local_clone")):
+            print ("trying to copy to local storage")
+            try:
+              os.system("resize_and_copy_local.sh valid_images_unique.txt" )
+              # copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+              dataset_localized = True
+              with open(osp(LOCAL_STORAGE_DIR,"successful_local_clone"),"w") as fh:
+                fh.write(timestamp+"\n")
 
 
-    dataset_localized = True
+            except Exception as e:
+                dataset_localized = False
+
+    elif args.source_dataset=="VG":
+        KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data"
+        regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data(.*)'
+        LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/VisualGenomeData/image_data"
+        replace_regex_exp = r'/export/u10/sadali/AIDA/images/VisualGenomeData/image_data\1'
+        
+        if not os.path.exists (osp(LOCAL_STORAGE_DIR,"VG_100K")):
+            print ("copyying VG data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+            try:
+                copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+                dataset_localized = True
+            except Exception as e:
+                print (e)
+                print ("Unable to copy image files for {} ".format(args.source_dataset) )
+                dataset_localized = False
+        else:
+            dataset_localized = True
+    elif args.source_dataset=="AIDASeedling":
+        KERAS_DATAGEN_DIR = "/nfs/raid66/u12/users/rbock/aida/image_captions/data_collection/images"
+        regex_exp = r'/nfs/raid66/u12/users/rbock/aida/image_captions/data_collection/images(.*)'
+        LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/AIDASeedling/image_data"
+        replace_regex_exp = r'/export/u10/sadali/AIDA/images/AIDASeedling/image_data\1'
+        if not os.path.exists (osp(LOCAL_STORAGE_DIR,"LDC2018E01")):
+            print ("copyying VG data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+            try:
+                copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+                dataset_localized = True
+            except Exception as e:
+                print (e)
+                print ("Unable to copy image files for {} ".format(args.source_dataset) )
+                dataset_localized = False
+                print ("Removing any localized dirs")
+                try:
+                    rmtree(osp(LOCAL_STORAGE_DIR,"LDC2018E01"))
+                except Exception as e:
+                    print (e)
+                try:
+                    rmtree(osp(LOCAL_STORAGE_DIR,"LDC2018E52"))
+                except Exception as e:
+                    print(e)
+        else:
+            dataset_localized = True
+
     has_labels = True
 
     gpu_id = 1
@@ -110,6 +173,10 @@ if __name__ == '__main__':
             print ("Removed classes:\n",  untrainable_classnames)
             print ("length of test_df",len(test_df))
         test_df = test_df.loc[~test_df['class'].isin(untrainable_classnames),:]
+
+    #Update the filepaths if images were copied to local storage
+        if dataset_localized :
+            test_df =test_df.replace(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR,regex= True)
         print ("new examplar count {}".format(len(test_df)))
 
         classnames= [k for k in init_classnames if k not in untrainable_classnames] 
@@ -119,14 +186,20 @@ if __name__ == '__main__':
         new_class_counts = test_df["class"].value_counts()
         new_class_counts.to_csv("class_counts_test.csv")
     try:
-        with open ("./models_dir/{}_class_indices.json".format(model_fname),"r") as json_fh:
-            class_indices_for_model = json.load(json_fh)
+        class_indices_json = "./models_dir/{}_class_indices.json".format(model_fname)
+        print("class_indices file is located ",class_indices_json)
+        assert os.path.exists(class_indices_json)
+        with open (class_indices_json,"r") as json_fh:
+            class_indices_for_model = json.load(json_fh, encoding="utf8")
     except Exception as e:
         print (e)
-        class_dirs=os.listdir(KERAS_DATAGEN_DIR)
-        classnames_ordered = np.sort(np.array(class_dirs)).tolist()
+        #class_dirs=os.listdir(KERAS_DATAGEN_DIR)
+
+        with open("GI_class_counts.csv","r") as fh:
+            classnames_orig =[ line.strip().split()[0] for line in  fh.readlines() ]
+        classnames_ordered = np.sort(np.array(classnames_orig)).tolist()
         print ("This is a temp hack.Should not be necessary if class_indices.json is available")
-        classnames_ordered = ["class_{}".format(i) for i in range(854)]
+        #classnames_ordered = ["class_{}".format(i) for i in range(854)]
         class_indices_for_model = dict(zip(classnames_ordered,range(len(classnames_ordered))))
         print(class_indices_for_model)
         
@@ -151,38 +224,53 @@ if __name__ == '__main__':
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
 
+    if  not args.restore_checkpoint:
+        end2endmodel = load_model(args.model_file,custom_objects={'L2Normalize':L2Normalize})
 
-    end2endmodel = load_model(args.model_file,custom_objects={'L2Normalize':L2Normalize})
-    print("dense_1 wts: \n", end2endmodel.get_layer('dense_1').get_weights())
-    if not args.image_only_model:
-        print("gru_1 wts: \n", end2endmodel.get_layer('gru_1').get_weights())
-        print("dense_2 wts: \n", end2endmodel.get_layer('dense_2').get_weights())
-    with open("layer_weights_at_test_time.txt","w") as fh:
-        fh.write("dense_1 wts: \n")
-        fh.write(str( end2endmodel.get_layer('dense_1').get_weights()))
-        if not args.image_only_model:
-            fh.write("\ngru_1 wts: \n")
-            fh.write(str( end2endmodel.get_layer('gru_1').get_weights()))
-            fh.write("\ndense_2 wts: \n")
-            fh.write(str( end2endmodel.get_layer('dense_2').get_weights()))
-        fh.write("\nblock5_conv4  wts: \n")
-        fh.write(str(end2endmodel.get_layer('block5_conv4').get_weights()))
-    end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
-    try:
-        
-        timestamp = "2018_12_20_22_03"
-        timestamp = args.train_timestamp
+        if debug:
+            print("dense_1 wts: \n", end2endmodel.get_layer('dense_1').get_weights())
+            if not args.image_only_model:
+                print("gru_1 wts: \n", end2endmodel.get_layer('gru_1').get_weights())
+                print("dense_2 wts: \n", end2endmodel.get_layer('dense_2').get_weights())
+        with open("layer_weights_at_test_time.txt","w") as fh:
+            fh.write("dense_1 wts: \n")
+            fh.write(str( end2endmodel.get_layer('dense_1').get_weights()))
+            if not args.image_only_model:
+                fh.write("\ngru_1 wts: \n")
+                fh.write(str( end2endmodel.get_layer('gru_1').get_weights()))
+                fh.write("\ndense_2 wts: \n")
+                fh.write(str( end2endmodel.get_layer('dense_2').get_weights()))
+            fh.write("\nblock5_conv4  wts: \n")
+            fh.write(str(end2endmodel.get_layer('block5_conv4').get_weights()))
+        end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
+    else:
+        try:
+            
+            timestamp = "2018_12_20_22_03"
+            timestamp = args.train_timestamp
 
-        #model_fname = "GI_keras_train_qa"+"_keras_vse_model-{}".format(timestamp)
-        model_fname = "{}_keras_vse_model-{}".format(args.train_file_id,timestamp)
-        
-        end2endmodel_2 = model_from_json("./models_dir/{}.json".format(model_fname),
-                                        custom_objects={'L2Normalize':L2Normalize} )
-        end2endmodel_2.load_weights(args.model_file)
-        print("\ndense_1 wts: \n", end2endmodel_2.get_layer('dense_1').get_weights())
-    except Exception as e:
-        print (e)
+            #model_fname = "GI_keras_train_qa"+"_keras_vse_model-{}".format(timestamp)
+            model_fname = "{}_keras_vse_model-{}".format(args.train_file_id,timestamp)
+            print (model_fname)
+            model_fpath = "./models_dir/{}.json".format(model_fname)
+            print (model_fpath)
+            model_json = None
+            with open(model_fpath,"r") as fh:
+                model_json_str = fh.read()
+            end2endmodel = model_from_json(model_json_str,
+                                            custom_objects={'L2Normalize':L2Normalize} )
+            print ("loaded from json")
+            end2endmodel.load_weights(args.model_file)
+            print ("loaded weights")
+            print("\ndense_1 wts: \n", end2endmodel.get_layer('dense_1').get_weights())
+        except Exception as e:
+            print (e)
     
+    print ("Model summary",end2endmodel.summary())
+    #end2endmodel.compile(optimizer='nadam', loss="binary_crossentropy")
+    model_output_dim = end2endmodel.outputs[0].shape[1]
+    print ("model output layer shape",end2endmodel.outputs[0].shape)
+    print ("model output layer dim",model_output_dim)
     #sys.exit(0)
     test_datagen = None
     if args.image_only_model:
@@ -195,8 +283,8 @@ if __name__ == '__main__':
             test_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
         else:
             test_datagen = datagen()
-    
-    print(type(test_datagen))
+    print ("setting up image data generator")
+    print("type(test_datagen)" ,type(test_datagen))
     if  args.image_only_model:
         test_data_it = test_datagen.flow_from_dataframe( 
                                                         dataframe= test_df,
@@ -232,6 +320,7 @@ if __name__ == '__main__':
                                                         sort=False,
                                                         cap_token_vocab=word_index,
                                                         num_tokens = len(word_index),
+                                                        drop_duplicates= True,
                                                         follow_links= True)
     # predictions = end2endmodel.predict_generator(test_data_it)
     # preds_out = open("preds_out.txt","w")
@@ -243,7 +332,9 @@ if __name__ == '__main__':
     
     if not os.path.exists (output_dir):
         os.makedirs(output_dir)
+    
     for batch in test_data_it:
+        print (batch_ctr)
         example_it  = batch_ctr*batch_size 
         batch_end   = min((example_it+batch_size), test_df.size)
         files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
