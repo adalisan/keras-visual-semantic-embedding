@@ -333,7 +333,7 @@ if __name__ == '__main__':
     if not os.path.exists (output_dir):
         os.makedirs(output_dir)
     
-    for batch in test_data_it:
+    for batch in end2endmodel.predict_generator(test_data_it):
         print (batch_ctr)
         example_it  = batch_ctr*batch_size 
         batch_end   = min((example_it+batch_size), test_df.size)
