@@ -6,7 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
 def caption_image(image_file_path,concept_score_triples,output_dir,
-                caption_threshold = 0.1 ,trans_dict=None,true_classname=None):
+                caption_threshold = 0.1 ,trans_dict=None,true_classname=None,
+                highest_pair=None):
     '''
     caption image with detected concepts and scores
     '''
@@ -21,6 +22,8 @@ def caption_image(image_file_path,concept_score_triples,output_dir,
     capt = ''
     if true_classname is not None:
         capt += "GT_annotation: {} ".format(true_classname)
+    if highest_pair is not None:
+        capt += "Highest score: {0:.2f} for class {1} ".format(highest_pair[1],highest_pair[0])
     max_det = 5
     det = 0
     for triple in concept_score_triples:
