@@ -8,6 +8,7 @@ import datetime
 from os.path import join as osp
 from os.path import exists as ose
 from shutil import copytree, rmtree
+from math import ceil
 import json
 import numpy as np
 from models import encode_sentences
@@ -330,44 +331,69 @@ if __name__ == '__main__':
     #   preds_out.write("{}\n".format(pr))
     batch_ctr  = 0
     output_dir = "/export/u10/sadali/AIDA/images/captioned_images/{}-{}".format(output_id, model_fname)
-
+    
     if not os.path.exists (output_dir):
         os.makedirs(output_dir)
 
-    while True:
-        b_it = 0
+    end_of_samples = False
+    #while True:
+    b_it = 0
+    sample_count = len(test_data_it.filenames)
+    batch_ctr_max = ceil(sample_count/batch_size )
+    while not end_of_samples:
         batch_indices = []
-        for batch_idx in next(test_data_it.index_generator):
-            if batch_idx is None:
+        batch_idx =None
+        for batch_idx in next(test_data_it.index_generator, -1):
+            if batch_idx < 0:
+                print(batch_idx)
+                end_of_samples = True
                 break
-            print (batch_ctr)
+            #print (batch_ctr)
             
             batch_indices.append(batch_idx)
             #files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
-            print(batch_indices)
+            
             b_it += 1
             if b_it == batch_size:
                 break
-            
+        if batch_idx <0 :
+            end_of_samples = True
+        #print(batch_indices)
         test_batch     = test_data_it._get_batches_of_transformed_samples(batch_indices)
         files_in_batch = [test_data_it.filenames[k] for k in batch_indices]
 
-        print(files_in_batch)
+        #print("files_in_batch:",str(files_in_batch))
         preds_out = end2endmodel.predict_on_batch(test_batch)
-        print(preds_out.shape)
-        preds_out_file = open("./{}/{}_{}preds_out.txt".format(output_id, args.train_file_id, args.train_timestamp),"w")
+        #print("predictions tensor shape", preds_out.shape)
+        if not os.path.exists("./{}".format(output_id)):
+            os.makedirs(output_id)
+        preds_out_file = open("./{}/{}_{}_{}_preds_out.txt".format(output_id,
+                               args.train_file_id, args.train_timestamp,timestamp),"w")
+        print("predictions")
         for pr in preds_out:
-            print(pr)
+            
             preds_out_file.write("{}\n".format(pr))
         preds_out_file.close()
+        print("starting captioning")
+        highest_idx = np.argmax(preds_out, axis=1)
         for b_i,f in enumerate(files_in_batch):
             concept_score_triples = []
+            
+            highest_class = ""
             for k,v in class_indices_for_model.items():
                 new_tri = (k, preds_out[b_i, v], preds_out[b_i, v])
                 #new_tri= (k, preds_out[v,b_i], preds_out[v,b_i])
+                if v == highest_idx[b_i]:
+                  highest_class = k
+                  highest_score = preds_out[b_i, v]
                 concept_score_triples.append(new_tri)
             caption_image(f, concept_score_triples, output_dir, 
-                caption_threshold = 0.1 , trans_dict=None)
+                    caption_threshold = 0.08 , trans_dict = None, true_classname= None,
+                    highest_pair     = [highest_class, highest_score] )
         batch_ctr += 1
+        if batch_ctr == batch_ctr_max:
+            break
         if batch_ctr % 200 == 0 :
             print ("{}th batch of images used on model" .format(batch_ctr))
+        # if end_of_samples :
+        #     break
