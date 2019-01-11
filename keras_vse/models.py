@@ -31,7 +31,8 @@ import h5py
 def concept_detector(model_file, glove_file, input_length ,data_vocab ,
                      token_count, num_classes, 
                      image_only_model =False,dropout_before_final = 0.0,
-                     final_act="sigmoid"):
+                     final_act="sigmoid",
+                     trainable_early_layers=False):
 
         
         #, embedding_weights, gru_weights, init_vocab_map = 
@@ -41,7 +42,8 @@ def concept_detector(model_file, glove_file, input_length ,data_vocab ,
         if model_file is not None:
             img_enc_weights = load_pretrained_parameters(model_file)
         image_encoder,image_feat_extractor = build_image_encoder(weights=img_enc_weights,  
-                                                                 embedding_dim=1024, normalize=True)
+                                                                 embedding_dim=1024, normalize=True,
+                                                                 trainable_early_layers=trainable_early_layers)
         if dropout_before_final> 0.0 :
             image_encoder_out = Dropout(dropout_before_final) (image_encoder.outputs[0])
         else:
@@ -55,7 +57,8 @@ def concept_detector(model_file, glove_file, input_length ,data_vocab ,
     
     image_encoder, sentence_encoder, vocab_map , image_feat_extractor = \
         build_pretrained_models(model_file, glove_file,input_length,
-                                data_vocab = data_vocab,token_count=token_count)
+                                data_vocab = data_vocab,token_count=token_count,
+                                trainable_early_layers=False)
     captioned_image_descriptor  = Concatenate(axis=-1)([image_encoder.outputs[0],
                                                         sentence_encoder.outputs[0]])
     if dropout_before_final > 0.0 :
@@ -75,11 +78,11 @@ def concept_detector(model_file, glove_file, input_length ,data_vocab ,
 def build_image_feat_extractor():
     return  VGG19(include_top=False, weights='imagenet', input_tensor=None, input_shape=None, pooling="avg")
 
-def build_image_encoder(weights=None, input_dim=4096, embedding_dim=1024, normalize=True):
+def build_image_encoder(weights=None, input_dim=4096, embedding_dim=1024, normalize=True, trainable_early_layers=False ):
     #input  = Input(shape=(input_dim,))
     init_model = build_image_feat_extractor()
     for layer in init_model.layers:
-        layer.trainable = False
+        layer.trainable = trainable_early_layers
     #init_model.compile
     x= Dense(
         embedding_dim,
@@ -88,6 +91,7 @@ def build_image_encoder(weights=None, input_dim=4096, embedding_dim=1024, normal
     if normalize:
         x = L2Normalize()(x)
     model = Model(input=init_model.inputs[0], output=x)
+    
     plot_model(model, to_file='image_model.png')
     return model, init_model
 
@@ -122,7 +126,7 @@ def build_sentence_encoder(embedding_weights=None, gru_weights=None, input_lengt
 
 
 def build_pretrained_models(model_filename, glove_file,input_length=None,data_vocab = None,
-                             token_count=None, normalize=True):
+                             token_count=None, normalize=True, trainable_early_layers =False):
     gru_weights= None
     img_enc_weights = None
     
@@ -142,7 +146,8 @@ def build_pretrained_models(model_filename, glove_file,input_length=None,data_vo
     
 
     image_encoder,image_feat_extractor = build_image_encoder(weights=img_enc_weights, 
-                                                             embedding_dim=1024, normalize=normalize)
+                                                             embedding_dim=1024, normalize=normalize,
+                                                             trainable_early_layers= trainable_early_layers)
     print ("Word Embedding matrix shape")
     print(glove_embedding_mat.shape)
     #print(glove_embedding_mat[10,:])
