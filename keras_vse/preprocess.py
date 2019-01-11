@@ -193,7 +193,8 @@ def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGe
         "image_captions": used_img_captions,
         "class" : img_classes}
         keras_train_df = keras_train_df.append(pd.DataFrame(new_df_dict))
-    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv",encoding="utf8",index=False)
+    keras_train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/VG_keras_train.csv",
+                            encoding="utf8",index=False)
 
 
 def get_similar(model,tok,topn):
@@ -207,8 +208,10 @@ def get_similar(model,tok,topn):
         return model.most_similar(tok,topn=topn)
 
 def get_img_concepts_OI( caption_vocab ,
-                         class_labels_csv = "../../Corpora_and_Concepts/Combined_OpenCorpora_new_OI_Sing_VW_train_labels.csv",
-                         img_id_imgpath_csv= "/nfs/mercury-11/u113/projects/AIDA/Comb_YT8m_Sing_newOI.part" ,
+                        #class_labels_csv = "/nfs/mercury-11/u113/projects/AIDA/Corpora_and_Concepts/Combined_OpenCorpora_new_OI_Sing_VW_train_labels.csv",
+                         class_labels_csv = "/export/u10/sadali/AIDA/Combined_OpenCorpora_new_OI_Sing_VW_train_labels.csv",
+                         #img_id_imgpath_csv= "/nfs/mercury-11/u113/projects/AIDA/Comb_YT8m_Sing_newOI.part" ,
+                         img_id_imgpath_csv= "/export/u10/sadali/AIDA/Comb_YT8m_Sing_newOI.part" ,
                          sim_thres =0.6,
                          glove_model_file = "/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt"):
 
@@ -254,58 +257,74 @@ def get_img_concepts_OI( caption_vocab ,
             img_id,img_path = line.split(':')
             img_id_imgpath_dict.update({img_id: img_path})
     img_id_classname_dict =dict()
-    with open(class_labels_csv,'r') as fh:
-        for line in fh.readlines():
-            line = line.strip()
-            img_id,classes_str =line.split(',')
-            classes_str= classes_str.strip()
-            classnames = classes_str.split(' ')
-            generic_seedling_classnames =  [ seedling_testable_classes[cl] for cl in classnames if cl in seedling_testable_classes.keys()]
-            
+    #csv_database = create_engine('sqlite:///csv_database.db')
+    chunksize=100000
+    i=0
+    j=1
+    looked_up_tokens = dict()
+    for df in pd.read_csv(class_labels_csv,chunksize=chunksize,
+                            iterator=True,header=None,names=["image_id","classes"]):
+    #with open(class_labels_csv,'r') as fh:
+        #for line in fh.readlines():
+        #    line = line.strip()
+        #    img_id,classes_str =line.split(',')
+            for index , row in  df.iterrows():
+                if index > 0 and index % 10000 == 0:
+                    print ("{}th row processed for OI".format(index))
+                img_id = row["image_id"]
+                classes_str= row["classes"]
+                if not isinstance(classes_str,str):
+                    print("weird classes string ")
+                    print (classes_str)
+                    continue
+                classes_str= classes_str.strip()
+                classnames = classes_str.split(' ')
+                generic_seedling_classnames =  [ seedling_testable_classes[cl] for cl in classnames if cl in seedling_testable_classes.keys()]
+                
 
-            img_id_classname_dict[img_id] = classnames
-            tokens = []
-            
-            src_tokens_pairs  = [cl.split('-') for cl in classnames ]
-            classnames.extend(generic_seedling_classnames)
-            
-            for pair in src_tokens_pairs:
-                if len(pair)>1:
-                    tokens.append(pair[1])
-                else:
-                    print("weird classname")
-                    print(pair)
-            
-            #glove.most_similar('token', )
-            dummy_caption = ""
-            looked_up_tokens = dict()
-            for tok in tokens:
-                if tok in looked_up_tokens.keys():
-                    similar_tokens = looked_up_tokens[tok] 
-                    similar_tokens_list.append(similar_tokens)
-                else:
-                    looked_up_tokens[tok] = get_similar(word2vec_model,tok, topn=topn) 
-                    similar_tokens_list.append(similar_tokens)
+                img_id_classname_dict[img_id] = classnames
+                tokens = []
+                
+                src_tokens_pairs  = [cl.split('-') for cl in classnames ]
+                classnames.extend(generic_seedling_classnames)
+                
+                for pair in src_tokens_pairs:
+                    if len(pair)>1:
+                        tokens.append(pair[1])
+                    else:
+                        print("weird classname")
+                        print(pair)
+                
+                #glove.most_similar('token', )
+                dummy_caption = ""
+                similar_tokens_list = []
+                for tok in tokens:
+                    if tok in looked_up_tokens.keys():
+                        similar_tokens = looked_up_tokens[tok] 
+                        similar_tokens_list.append(similar_tokens)
+                    else:
+                        looked_up_tokens[tok] = get_similar(word2vec_model,tok, topn=topn) 
+                        similar_tokens_list.append(looked_up_tokens[tok])
 
 
 
 
-            #similar_tokens_list = [get_similar(word2vec_model,tok,topn=topn) for tok in tokens ]
-            token_ct = 0
-            for similar_tokens in similar_tokens_list:
-                for similar_token,similarity in similar_tokens:
+                #similar_tokens_list = [get_similar(word2vec_model,tok,topn=topn) for tok in tokens ]
+                token_ct = 0
+                for similar_tokens in similar_tokens_list:
+                    for similar_token,similarity in similar_tokens:
 
-                    if similarity > sim_thres and similar_token in caption_vocab:
-                        dummy_caption += " {}".format(similar_token)
-                        token_ct += 1
-            
-            img_path = img_id_imgpath_dict.get(img_id,"")
-            new_df_dict = { "filenames":      [img_path for i in classnames] ,
-                            "image_captions": [dummy_caption for i in classnames]  ,
-                            "class" :         [cl for cl in classnames]
-                        }
-            train_df = train_df.append(pd.DataFrame(new_df_dict))
-    train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/OI_keras_train.csv",encoding="utf8")
+                        if similarity > sim_thres and similar_token in caption_vocab:
+                            dummy_caption += " {}".format(similar_token)
+                            token_ct += 1
+                
+                img_path = img_id_imgpath_dict.get(img_id,"")
+                new_df_dict = { "filenames":      [img_path for i in classnames] ,
+                                "image_captions": [dummy_caption for i in classnames]  ,
+                                "class" :         [cl for cl in classnames]
+                            }
+                train_df = train_df.append(pd.DataFrame(new_df_dict))
+    train_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/OI_keras_train_faster.csv",encoding="utf8")
 
 
 
@@ -314,7 +333,7 @@ def BBN_AIDA_annotation_ingest(
         dataset_dir = "/nfs/raid66/u12/users/rbock/aida/image_captions/annotation_of_seedling_corpus/spreadsheets/with_paths" ,
         annotation_dir = "/nfs/raid66/u12/users/rbock/aida/image_captions/annotation_of_seedling_corpus/images/"
         ):
-    col_names = ["child_id", "article_url","image_url","image_caption","filenames"]
+    col_names = ["child_id", "article_url","image_url","image_captions","filenames"]
     annot_sets = [ "LDC2018E01", "LDC2018E52" ]
     image_id_classlabel_dict = {}
     for dataset_file  in glob.glob(osp(dataset_dir,"*.tab")):
