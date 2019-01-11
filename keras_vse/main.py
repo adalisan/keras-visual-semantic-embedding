@@ -4,6 +4,7 @@ import os ,sys
 import argparse
 import datetime
 from os.path import join as osp
+from os.path import exists as ose
 from shutil import copytree, rmtree
 import json
 from models import encode_sentences
@@ -67,8 +68,8 @@ if __name__ == '__main__':
     parser.add_argument('--run_prediction', default=False,  action="store_true")
     parser.add_argument('--source_dataset', default="GI", choices = ["GI","VG","OI","GCC"])
     parser.add_argument('--debug', default=False,  action="store_true")
-    parser.add_argument('--exp_id', default=None,type=str)
-    parser.add_argument('--final_act_layer', default= "softmax", choices = ["softmax" ,"sigmoid"], type=str)
+    parser.add_argument('--exp_id', default=None, type=str)
+    parser.add_argument('--final_act_layer', default= "softmax", choices = ["softmax" , "sigmoid"], type=str)
     
     args = parser.parse_args()
     
@@ -152,6 +153,8 @@ if __name__ == '__main__':
     train_file_id +='_epoch_{}'.format(args.epoch)
     if args.exp_id is not None:
         output_id = args.exp_id+'_'+train_file_id
+    else:
+        output_id = train_file_id
     if not os.path.exists("./{}".format(output_id)):
         os.makedirs(output_id)
     #Determine GPU number
@@ -335,8 +338,10 @@ if __name__ == '__main__':
 
 
     # Run the actual training  
-    model_ckpt = ModelCheckpoint(filepath='./models_dir/{0}/{1}_ckpt_model-weights.{{epoch:02d}}'.format(output_id,train_file_id),monitor= "loss")
-    tensorboard_logs_dir = "./models_dir/{0}/tb_logs_{1}".format(output_id,train_file_id)
+    model_ckpt = ModelCheckpoint(filepath = './models_dir/{}/{}_ckpt_model-weights.{{epoch:02d}}'.format(output_id,train_file_id),monitor= "loss")
+    tensorboard_logs_dir = "./models_dir/{}/tb_logs_{}".format(output_id,train_file_id)
+    if not ose(tensorboard_logs_dir):
+        os.makedirs(tensorboard_logs_dir)
     tb_callback = TensorBoard(log_dir = tensorboard_logs_dir,
                               embeddings_layer_names = ["l2_normalize_1","l2_normalize_2"],
                               embeddings_data=vis_input_list)
