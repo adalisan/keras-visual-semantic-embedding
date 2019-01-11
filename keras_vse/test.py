@@ -345,25 +345,25 @@ if __name__ == '__main__':
             batch_indices.append(batch_idx)
             #files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
             print(batch_indices)
-            b_i += 1
+            b_it += 1
             if b_it == batch_size:
                 break
             
         test_batch     = test_data_it._get_batches_of_transformed_samples(batch_indices)
         files_in_batch = [test_data_it.filenames[k] for k in batch_indices]
-        
+
         print(files_in_batch)
         preds_out = end2endmodel.predict_on_batch(test_batch)
         print(preds_out.shape)
-        preds_out = open("./{}/{}_{}preds_out.txt".format(output_id, args.train_file_id, args.train_timestamp),"w")
+        preds_out_file = open("./{}/{}_{}preds_out.txt".format(output_id, args.train_file_id, args.train_timestamp),"w")
         for pr in preds_out:
             print(pr)
-            preds_out.write("{}\n".format(pr))
+            preds_out_file.write("{}\n".format(pr))
+        preds_out_file.close()
         for b_i,f in enumerate(files_in_batch):
             concept_score_triples = []
             for k,v in class_indices_for_model.items():
-
-                new_tri = (k, preds_out[b_i,v], preds_out[b_i,v])
+                new_tri = (k, preds_out[b_i, v], preds_out[b_i, v])
                 #new_tri= (k, preds_out[v,b_i], preds_out[v,b_i])
                 concept_score_triples.append(new_tri)
             caption_image(f, concept_score_triples, output_dir, 
