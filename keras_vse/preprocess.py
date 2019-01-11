@@ -117,7 +117,7 @@ def GI_download_ingest(KERAS_DATAGEN_DIR,
 
 
 
-def visual_genome_ingest(data_dir = "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData",
+def visual_genome_ingest(data_dir      =  "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData",
                         image_data_dir =  "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data" ):
     # with open(osp(data_dir,"relationships.json"),'r') as fp:
     #     relations=json.load(fp)
@@ -280,11 +280,11 @@ def get_img_concepts_OI( caption_vocab ,
                 classes_str= classes_str.strip()
                 classnames = classes_str.split(' ')
                 generic_seedling_classnames =  [ seedling_testable_classes[cl] for cl in classnames if cl in seedling_testable_classes.keys()]
-                
+
 
                 img_id_classname_dict[img_id] = classnames
                 tokens = []
-                
+
                 src_tokens_pairs  = [cl.split('-') for cl in classnames ]
                 classnames.extend(generic_seedling_classnames)
                 
@@ -364,6 +364,14 @@ def BBN_AIDA_annotation_ingest(
         print ( merged_df.loc[:,["filenames","image_caption","class"]].head())
     return merged_df
 
+def GI_generic_classes_BBN(
+        labels_tsv     = "/nfs/raid66/u12/users/rbock/aida/image_captions/web_collection/20190110/aggregated/raw/images_titles_and_captions.filtered.tab"
+        ):
+        colnames = ["ontological_type", "image_path", "title", "caption"]
+        labels_df = pd.read_csv(labels_tsv, names = colnames, sep="\t")
+        labels_df.columns = ["class", "filenames", "page_title", "image_caption"]
+        labels_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/GI_Training_BBN.csv")
+
 
 
 
@@ -397,7 +405,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser('Preprocess ')
     parser.add_argument('--out_data_dir', type=str,dest= "KERAS_DATAGEN_DIR")
     parser.add_argument('--dataset', type=str,dest= "data_source", 
-                choices= ["GI","GoogleCaps","VisualGenome","OI","AIDASeedling"])
+                choices= ["GI","GoogleCaps","VisualGenome","OI","AIDASeedling","GI_BBN"])
 
     args = parser.parse_args()
     if args.data_source=="GI":
@@ -405,6 +413,8 @@ if __name__ == '__main__':
     elif args.data_source == "GoogleCaps":
         Google_conceptual_captions_ingest(image_caption_tsv= "/nfs/mercury-11/u113/projects/AIDA/Train%2FGCC-training.tsv",
                                     kfile="/nfs/mercury-11/u113/projects/AIDA/concept_lists/relevant_vocab.txt.3")
+    elif args.data_source == "GI_BBN":
+        GI_generic_classes_BBN()
     elif args.data_source == "OI":
         caption_vocab_file = "caption_vocab.txt"
         caption_vocab = []
