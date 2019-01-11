@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 #encoding: utf-8
 
+#%%
 import os ,sys
 import argparse
 import datetime
@@ -35,16 +36,15 @@ if 'tensorflow' == K.backend():
 
 def mil_squared_error(y_true, y_pred):
     return K.tile(K.square(K.max(y_pred) - K.max(y_true)), 16)
-
-
+#%%
 if __name__ == '__main__':
-
 
     parser = argparse.ArgumentParser('Visual semantic embeddings')
     parser.add_argument('--model_file', type=str,default = None)
     parser.add_argument('--test_csv_file', type=str)
     parser.add_argument('--source_dataset', type=str)
     parser.add_argument('--tokenizer_pkl_file_id', dest="train_file_id", type=str)
+    parser.add_argument('--exp_id', dest="exp_id", type=str)
     parser.add_argument('--model_train_timestamp', dest="train_timestamp", type=str)
     parser.add_argument('--glove_embed_file',
         default="/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt" , type=str)
@@ -58,8 +58,9 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
+    output_id =  args.exp_id +"_"+args.train_file_id
     debug = False
-    verbose =args.verbose
+    verbose = args.verbose
     K.set_floatx('float32')
     batch_size = 32
 
@@ -186,7 +187,7 @@ if __name__ == '__main__':
         new_class_counts = test_df["class"].value_counts()
         new_class_counts.to_csv("class_counts_test.csv")
     try:
-        class_indices_json = "./models_dir/{}_class_indices.json".format(model_fname)
+        class_indices_json = "./models_dir/{}/{}_class_indices.json".format(output_id,model_fname)
         print("class_indices file is located ",class_indices_json)
         assert os.path.exists(class_indices_json)
         with open (class_indices_json,"r") as json_fh:
@@ -318,10 +319,10 @@ if __name__ == '__main__':
                                                         subset=None,
                                                         interpolation='nearest',
                                                         sort=False,
-                                                        cap_token_vocab=word_index,
+                                                        cap_token_vocab = word_index,
                                                         num_tokens = len(word_index),
-                                                        drop_duplicates= True,
-                                                        follow_links= True)
+                                                        drop_duplicates = True,
+                                                        follow_links    = True)
     # predictions = end2endmodel.predict_generator(test_data_it)
     # preds_out = open("preds_out.txt","w")
     # for pr in predictions:
@@ -333,23 +334,34 @@ if __name__ == '__main__':
     if not os.path.exists (output_dir):
         os.makedirs(output_dir)
     
-    for batch in end2endmodel.predict_generator(test_data_it):
-        print (batch_ctr)
-        example_it  = batch_ctr*batch_size 
-        batch_end   = min((example_it+batch_size), test_df.size)
-        files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
-        preds_out = end2endmodel.predict_on_batch(batch)
-        print(preds_out.shape)
-        for b_i,f in enumerate(files_in_batch):
-            concept_score_triples = []
-            for k,v in class_indices_for_model.items():
-                new_tri= (k,preds_out[b_i,v],preds_out[b_i,v])
-                concept_score_triples.append(new_tri)
-            caption_image(f, concept_score_triples, output_dir, 
-                caption_threshold = 0.3 ,trans_dict=None)
-        batch_ctr += 1
-        if batch_ctr % 200 == 0 :
-            print ("{}th batch of images used on model" .format(batch_ctr))
+    while True:
+        for batch_indices in next(test_data_it.index_generator):
+            if batch_indices is None:
+                break
+            print (batch_ctr)
+            example_it  = batch_ctr*batch_size 
+            batch_end   = min((example_it+batch_size), test_df.size)
+            #files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
+            print(batch_indices)
+            
+            test_batch     = test_data_it._get_batches_of_transformed_samples([batch_indices])
+            files_in_batch = test_data_it.filenames[batch_indices]
+            files_in_batch = [files_in_batch]
+            print(files_in_batch)
+            preds_out = end2endmodel.predict_on_batch(test_batch)
+            print(preds_out.shape)
+            for b_i,f in enumerate(files_in_batch):
+                concept_score_triples = []
+                for k,v in class_indices_for_model.items():
+
+                    new_tri= (k,preds_out[b_i,v],preds_out[b_i,v])
+                    #new_tri= (k, preds_out[v,b_i], preds_out[v,b_i])
+                    concept_score_triples.append(new_tri)
+                caption_image(f, concept_score_triples, output_dir, 
+                    caption_threshold = 0.3 ,trans_dict=None)
+            batch_ctr += 1
+            if batch_ctr % 200 == 0 :
+                print ("{}th batch of images used on model" .format(batch_ctr))
 
 
 
