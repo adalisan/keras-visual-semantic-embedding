@@ -246,7 +246,7 @@ if __name__ == '__main__':
         end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
     else:
         try:
-            
+
             timestamp = "2018_12_20_22_03"
             timestamp = args.train_timestamp
 
@@ -266,7 +266,7 @@ if __name__ == '__main__':
             print("\ndense_1 wts: \n", end2endmodel.get_layer('dense_1').get_weights())
         except Exception as e:
             print (e)
-    
+
     print ("Model summary",end2endmodel.summary())
     #end2endmodel.compile(optimizer='nadam', loss="binary_crossentropy")
     model_output_dim = end2endmodel.outputs[0].shape[1]
@@ -328,40 +328,46 @@ if __name__ == '__main__':
     # for pr in predictions:
     #   print(pr)
     #   preds_out.write("{}\n".format(pr))
-    batch_ctr = 0
-    output_dir = "/export/u10/sadali/AIDA/images/captioned_images/{}".format(model_fname)
-    
+    batch_ctr  = 0
+    output_dir = "/export/u10/sadali/AIDA/images/captioned_images/{}-{}".format(output_id, model_fname)
+
     if not os.path.exists (output_dir):
         os.makedirs(output_dir)
-    
+
     while True:
-        for batch_indices in next(test_data_it.index_generator):
-            if batch_indices is None:
+        b_it = 0
+        batch_indices = []
+        for batch_idx in next(test_data_it.index_generator):
+            if batch_idx is None:
                 break
             print (batch_ctr)
-            example_it  = batch_ctr*batch_size 
-            batch_end   = min((example_it+batch_size), test_df.size)
+            
+            batch_indices.append(batch_idx)
             #files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
             print(batch_indices)
+            b_i += 1
+            if b_it == batch_size:
+                break
             
-            test_batch     = test_data_it._get_batches_of_transformed_samples([batch_indices])
-            files_in_batch = test_data_it.filenames[batch_indices]
-            files_in_batch = [files_in_batch]
-            print(files_in_batch)
-            preds_out = end2endmodel.predict_on_batch(test_batch)
-            print(preds_out.shape)
-            for b_i,f in enumerate(files_in_batch):
-                concept_score_triples = []
-                for k,v in class_indices_for_model.items():
+        test_batch     = test_data_it._get_batches_of_transformed_samples(batch_indices)
+        files_in_batch = [test_data_it.filenames[k] for k in batch_indices]
+        
+        print(files_in_batch)
+        preds_out = end2endmodel.predict_on_batch(test_batch)
+        print(preds_out.shape)
+        preds_out = open("./{}/{}_{}preds_out.txt".format(output_id, args.train_file_id, args.train_timestamp),"w")
+        for pr in preds_out:
+            print(pr)
+            preds_out.write("{}\n".format(pr))
+        for b_i,f in enumerate(files_in_batch):
+            concept_score_triples = []
+            for k,v in class_indices_for_model.items():
 
-                    new_tri= (k,preds_out[b_i,v],preds_out[b_i,v])
-                    #new_tri= (k, preds_out[v,b_i], preds_out[v,b_i])
-                    concept_score_triples.append(new_tri)
-                caption_image(f, concept_score_triples, output_dir, 
-                    caption_threshold = 0.3 ,trans_dict=None)
-            batch_ctr += 1
-            if batch_ctr % 200 == 0 :
-                print ("{}th batch of images used on model" .format(batch_ctr))
-
-
-
+                new_tri = (k, preds_out[b_i,v], preds_out[b_i,v])
+                #new_tri= (k, preds_out[v,b_i], preds_out[v,b_i])
+                concept_score_triples.append(new_tri)
+            caption_image(f, concept_score_triples, output_dir, 
+                caption_threshold = 0.1 , trans_dict=None)
+        batch_ctr += 1
+        if batch_ctr % 200 == 0 :
+            print ("{}th batch of images used on model" .format(batch_ctr))
