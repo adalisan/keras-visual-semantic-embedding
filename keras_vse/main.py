@@ -48,7 +48,7 @@ def check_gpu_availability():
         # confirm Keras sees the GPU
 
     assert len(K.tensorflow_backend._get_available_gpus()) > 0
-        
+
 if __name__ == '__main__':
 
 
@@ -108,9 +108,9 @@ if __name__ == '__main__':
         regex_exp = r'/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data(.*)'
         LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/VisualGenomeData/image_data"
         replace_regex_exp = r'/export/u10/sadali/AIDA/images/VisualGenomeData/image_data\1'
-        
+
         if not os.path.exists (osp(LOCAL_STORAGE_DIR,"VG_100K")):
-            print ("copyying VG data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+            print ("copying VG data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
             try:
                 copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
                 dataset_localized = True
@@ -168,7 +168,7 @@ if __name__ == '__main__':
         print ("Overwriting gpu id from cfg file with given arg {}".format(args.fix_gpu))
         gpu_id_str = str(args.fix_gpu)
     #%% 
-    
+
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = gpu_id_str
@@ -178,46 +178,52 @@ if __name__ == '__main__':
     #session = tf.Session(config=config)
     set_session(tf.Session(config=config))
 
-    #REad the dataafreme which includes filepaths , captions and classnames
+    #REad the dataframe which includes filepaths , captions and classnames
     train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
     if verbose:
         print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
-    
-    
-   
 
     texts = train_df["image_captions"].values.tolist()
     class_names_pd =  pd.unique(train_df["class"].values)
     init_classnames =class_names_pd.tolist()
-    
+
     class_counts = train_df["class"].value_counts()
     class_counts.to_csv("{}_class_counts_orig.csv".format(args.source_dataset))
-        
+
     class_ct_threshold = args.class_ct_threshold
     if minimal_train_set:
         class_ct_threshold = 0
-    
-    
+
     #limiting to classes.
     if args.limit_to_evaluable_classes:
-        trans_df = pd.read_tsv(
-            "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/all_image_concepts_GI_specific_translation_en_es_ru_uk_limit.csv",
-            header =True)
+        trans_df = pd.read_csv(
+            "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/all_image_concepts_GI_specific_translation_en_es_ru_uk_gen_limit.csv",
+            encoding="utf-16",
+            dtype="str"
+            )
+        
+        print (trans_df.head())
         #first get all the translations
         class_mapping = dict()
-        for row in trans_df.iterrows():
+        for index,row in trans_df.iterrows():
+            #print("row is ",row)
+            if pd.isnull(row[-1]):
+                continue
             for i in row:
+                
+                print ("type_i",type(i))
                 if pd.isnull(i):
                     print (i)
                 else:
-                    class_mapping[i.values] = row["Generic_annotation_label"]
-            
-            
-        class_ct_threshold = 50
-        train_df = train_df.loc[train_df['class'.isin(class_mapping.keys())]]
+                    print("generic label",row[-1])
+                    class_mapping.update({i: row[-1]})
+        print(class_mapping)
+        class_ct_threshold = 0
+        train_df = train_df.loc[train_df['class'].isin(class_mapping.keys()),:]
         class_counts = train_df["class"].value_counts()
 
-
+        train_df = train_df.replace(class_mapping)
+        init_classnames = pd.unique(train_df["class"].values)
 
     #REmove any classes that have less # of examples than class_ct_threshold
     untrainable_classes    = class_counts < class_ct_threshold 
@@ -226,8 +232,9 @@ if __name__ == '__main__':
         print(untrainable_classnames)
         print (len(train_df))
     train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
-    
-    labels_df= pd.read_csv("/nfs/mercury-11/u113/projects/AIDA/GI_Training_BBN.tsv",encoding='utf8',sep="\t")
+
+    labels_df= pd.read_csv("/nfs/mercury-11/u113/projects/AIDA/GI_Training_BBN.tsv",
+                            encoding='utf8',sep="\t",header =0)
     print(labels_df.columns)
     labels_df.columns  = ["row_index" , "class", "filenames", "page_title", "image_captions"]
     
