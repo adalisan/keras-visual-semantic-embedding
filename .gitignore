@@ -18,6 +18,13 @@ keras_vse/keras_vse_runlog*.txt
 logs
 output
 keras_vse/*.txt
+keras_vse/models_dir
 keras_vse/models_dir/*.json
+keras_vse/models_dir/*.txt
 *.zip
 ckpt_model*
+keras_vse/*/*.txt
+run_main_*
+run_test_*
+
+
