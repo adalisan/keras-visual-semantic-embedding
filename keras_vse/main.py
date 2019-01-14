@@ -66,10 +66,11 @@ if __name__ == '__main__':
     parser.add_argument('--image_only_model', default=False,  action="store_true")
     parser.add_argument('--no_training', default=False,  action="store_true")
     parser.add_argument('--run_prediction', default=False,  action="store_true")
-    parser.add_argument('--source_dataset', default="GI", choices = ["GI","VG","OI","GCC"])
+    parser.add_argument('--source_dataset', default="GI", choices = ["GI","VG","OI","GCC","AIDASeedling"])
     parser.add_argument('--debug', default=False,  action="store_true")
     parser.add_argument('--exp_id', default=None, type=str)
     parser.add_argument('--final_act_layer', default= "softmax", choices = ["softmax" , "sigmoid"], type=str)
+    parser.add_argument('--trainable_image_cnn', default= False, action ="store_true")
     
     args = parser.parse_args()
     
@@ -80,6 +81,7 @@ if __name__ == '__main__':
 
     #Depending on the source data copy the images to local storage  a subdir of /export/u10 
     dataset_localized = False
+    minimal_train_set = False
     timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M")
     if args.source_dataset=="GI":
         KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/image_data_links"
@@ -95,8 +97,6 @@ if __name__ == '__main__':
                 dataset_localized = True
                 with open(osp(LOCAL_STORAGE_DIR,"successful_local_clone"),"w") as fh:
                     fh.write(timestamp+"\n")
-
-
             except Exception as e:
                 dataset_localized = False
 
@@ -142,7 +142,8 @@ if __name__ == '__main__':
                     print(e)
         else:
             dataset_localized = True
-
+    else:
+        minimal_train_set = True
     # Form the experiment,training identifier
     train_file_id =os.path.basename(args.train_csv_file)
     train_file_id = os.path.splitext(train_file_id)[0]
@@ -178,14 +179,30 @@ if __name__ == '__main__':
     train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
     if verbose:
         print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
+    
+    
+   
+
     texts = train_df["image_captions"].values.tolist()
     class_names_pd =  pd.unique(train_df["class"].values)
     init_classnames =class_names_pd.tolist()
     
     class_counts = train_df["class"].value_counts()
     class_counts.to_csv("{}_class_counts_orig.csv".format(args.source_dataset))
-    class_ct_threshold = 200
+        
+    class_ct_threshold = 120
+    if minimal_train_set:
+        class_ct_threshold = 0
     
+    # limit_to_evaluable_classes = True
+    # if limit_to_evaluable_classes:
+    #     pd.read_tsv(
+    #         "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/all_image_concepts_GI_specific_translation_en_es_ru_uk_limit.csv",
+    #         header =True)
+    #     pd["Generic_annotation_label"]=
+    #     pd[""]
+    #     class_ct_threshold = 50
+
     #REmove any classes that have less # of examples than class_ct_threshold
     untrainable_classes    = class_counts < class_ct_threshold 
     untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
@@ -193,10 +210,40 @@ if __name__ == '__main__':
         print(untrainable_classnames)
         print (len(train_df))
     train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
+    
+    labels_df= pd.read_csv("/nfs/mercury-11/u113/projects/AIDA/GI_Training_BBN.tsv",encoding='utf8',sep="\t")
+    print(labels_df.columns)
+    labels_df.columns  = ["row_index" , "class", "filenames", "page_title", "image_captions"]
+    
+    train_df.append(labels_df[["class", "filenames", "image_captions"]])
 
     #Update the filepaths if images were copied to local storage
     if dataset_localized :
-        train_df =train_df.replace(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR,regex= True)
+        train_df =train_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
+    print (train_df["filenames"].head())
+    KERAS_DATAGEN_DIR_EXTRA = "/nfs/raid66/u12/users/rbock/aida/image_captions/web_collection/20190110/aggregated"
+    regex_exp = r'/nfs/raid66/u12/users/rbock/aida/image_captions/web_collection/20190110/aggregated(.*)'
+    LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/BBN_GI_minimal/image_data"
+    replace_regex_exp = r'/export/u10/sadali/AIDA/images/BBN_GI_minimal/image_data\1'
+    dataset_localized_extra = False
+    if not os.path.exists (osp(LOCAL_STORAGE_DIR,"raw")):
+        print ("copyying BBN-GI data from ",KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR)
+        try:
+            copytree(KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR)
+            dataset_localized_extra = True
+        except Exception as e:
+            print (e)
+            print ("Unable to copy image files for BBN-GI extra " )
+            dataset_localized_extra = False
+            print ("Removing any localized dirs")
+            try:
+                rmtree(osp(LOCAL_STORAGE_DIR,"raw"))
+            except Exception as e:
+                print (e)
+        if dataset_localized_extra:
+            train_df =train_df.replace(KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR, regex= True)
+
+
     print ("new examplar count {}".format(len(train_df)))
     classnames= [k for k in init_classnames if k not in untrainable_classnames] 
     if verbose:
@@ -228,7 +275,8 @@ if __name__ == '__main__':
                                         token_count = len(word_index),
                                         num_classes= len(classnames),
                                         image_only_model =args.image_only_model ,
-                                        final_act = args.final_act_layer)
+                                        final_act = args.final_act_layer,
+                                        trainable_early_layers= args.trainable_image_cnn)
     #optim_algo=Nadam(lr=.004 ,clipnorm=1.)
     optim_algo=Nadam(lr=.004 )
     #end2endmodel.compile(optimizer=optim_algo, loss="categorical_crossentropy")
@@ -316,7 +364,8 @@ if __name__ == '__main__':
         print (type(img_arrays))
         vis_input = np.concatenate(list(img_arrays),axis=0)
         #cap_input = np.concatenate(list(cap_encoded_arrays),axis=0)
-        
+        print (vis_input.shape)
+        print (cap_input.shape)
         vis_input_list = [vis_input,cap_input]
         train_data_it = train_datagen.flow_from_dataframe( 
                                                         dataframe= train_df,
@@ -357,6 +406,9 @@ if __name__ == '__main__':
     except Exception as e:
         print (e)
         print ("Unable to save model as json files")
+    class_indices_for_model = train_data_it.class_indices
+    with open ("./models_dir/{}/{}_{}_class_indices.json".format(output_id, model_fname,class_ct_threshold),"w") as json_fh:
+        json.dump(dict(train_data_it.class_indices),json_fh)
 
     if debug:
         end2endmodel.fit_generator(train_data_it,steps_per_epoch=200)
@@ -373,9 +425,7 @@ if __name__ == '__main__':
     except Exception as e:
         print (e)
         print ("Unable to save model as json+h5 files")
-    class_indices_for_model = train_data_it.class_indices
-    with open ("./models_dir/{}/{}_class_indices.json".format(output_id, model_fname),"w") as json_fh:
-        json.dump(dict(train_data_it.class_indices),json_fh)
+
 
     #create a test data generator for testing/sanity-checking the trained model  using training data
     test_datagen = None
