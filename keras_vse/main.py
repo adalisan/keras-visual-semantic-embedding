@@ -72,6 +72,9 @@ if __name__ == '__main__':
     parser.add_argument('--final_act_layer', default= "softmax", choices = ["softmax" , "sigmoid"], type=str)
     parser.add_argument('--trainable_image_cnn', default= False, action ="store_true")
     parser.add_argument('--class_ct_threshold', default = 120, type = int)
+    
+    parser.add_argument('--limit_to_ann_classes', default= False,dest="limit_to_evaluable_classes", action ="store_true")
+    
     args = parser.parse_args()
     
     debug = args.debug
@@ -194,14 +197,27 @@ if __name__ == '__main__':
     if minimal_train_set:
         class_ct_threshold = 0
     
-    # limit_to_evaluable_classes = True
-    # if limit_to_evaluable_classes:
-    #     pd.read_tsv(
-    #         "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/all_image_concepts_GI_specific_translation_en_es_ru_uk_limit.csv",
-    #         header =True)
-    #     pd["Generic_annotation_label"]=
-    #     pd[""]
-    #     class_ct_threshold = 50
+    
+    #limiting to classes.
+    if args.limit_to_evaluable_classes:
+        trans_df = pd.read_tsv(
+            "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/all_image_concepts_GI_specific_translation_en_es_ru_uk_limit.csv",
+            header =True)
+        #first get all the translations
+        class_mapping = dict()
+        for row in trans_df.iterrows():
+            for i in row:
+                if pd.isnull(i):
+                    print (i)
+                else:
+                    class_mapping[i.values] = row["Generic_annotation_label"]
+            
+            
+        class_ct_threshold = 50
+        train_df = train_df.loc[train_df['class'.isin(class_mapping.keys())]]
+        class_counts = train_df["class"].value_counts()
+
+
 
     #REmove any classes that have less # of examples than class_ct_threshold
     untrainable_classes    = class_counts < class_ct_threshold 
