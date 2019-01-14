@@ -56,6 +56,7 @@ if __name__ == '__main__':
     parser.add_argument('--verbose', default=False,  action="store_true")
     parser.add_argument('--image_only_model', default=False,  action="store_true")
     parser.add_argument('--restore_checkpoint', default=False,  action="store_true")
+    parser.add_argument('--class_ct_threshold', default = 120, type = int)
     
     args = parser.parse_args()
 
@@ -167,7 +168,7 @@ if __name__ == '__main__':
     
         class_counts = test_df["class"].value_counts()
         class_counts.to_csv("class_counts_test_orig.csv")
-        class_ct_threshold = 50
+        class_ct_threshold = args.class_ct_threshold
     
         untrainable_classes    = class_counts < class_ct_threshold 
         untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
@@ -188,11 +189,16 @@ if __name__ == '__main__':
         new_class_counts = test_df["class"].value_counts()
         new_class_counts.to_csv("class_counts_test.csv")
     try:
-        class_indices_json = "./models_dir/{}/{}_class_indices.json".format(output_id,model_fname)
+        if not args.restore_checkpoint:
+            class_indices_json = "./models_dir/{}/{}_class_indices.json".format(output_id,model_fname)
+        else:
+            class_indices_json = "./models_dir/GI_image_only_softmax_GI_keras_train_qa_image_only_epoch_3/GI_keras_train_qa_image_only_epoch_3_keras_vse_model-2019_01_09_23_31_class_indices.json"
         print("class_indices file is located ",class_indices_json)
         assert os.path.exists(class_indices_json)
         with open (class_indices_json,"r") as json_fh:
             class_indices_for_model = json.load(json_fh, encoding="utf8")
+        
+
     except Exception as e:
         print (e)
         #class_dirs=os.listdir(KERAS_DATAGEN_DIR)
@@ -203,7 +209,7 @@ if __name__ == '__main__':
         print ("This is a temp hack.Should not be necessary if class_indices.json is available")
         #classnames_ordered = ["class_{}".format(i) for i in range(854)]
         class_indices_for_model = dict(zip(classnames_ordered,range(len(classnames_ordered))))
-        print(class_indices_for_model)
+        #print(class_indices_for_model)
         
     if dataset_localized:
         test_df =test_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
@@ -217,8 +223,13 @@ if __name__ == '__main__':
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
     test_tokenizer = Tokenizer(num_words=args.maxtokencount)
 
+    if ose('./{}/keras_captiontokenizer_{}.pkl'.format(output_id,args.train_file_id)):
+        tokenizer_pkl_file = './{}/keras_captiontokenizer_{}.pkl'.format(output_id,args.train_file_id)
+    else:
+        tokenizer_pkl_file = 'keras_captiontokenizer_{}.pkl'.format(args.train_file_id)
+  
 
-    with open('keras_captiontokenizer_{}.pkl'.format(args.train_file_id),"rb")  as kfh:
+    with open(tokenizer_pkl_file,"rb")  as kfh:
         tokenizer = pkl.load(kfh)
     tokenizer.fit_on_texts(texts_ascii)
     
@@ -230,7 +241,7 @@ if __name__ == '__main__':
         end2endmodel = load_model(args.model_file,custom_objects={'L2Normalize':L2Normalize})
 
         if debug:
-            print("dense_1 wts: \n", end2endmodel.get_layer('dense_1').get_weights())
+            #print("dense_1 wts: \n", end2endmodel.get_layer('dense_1').get_weights())
             if not args.image_only_model:
                 print("gru_1 wts: \n", end2endmodel.get_layer('gru_1').get_weights())
                 print("dense_2 wts: \n", end2endmodel.get_layer('dense_2').get_weights())
@@ -257,6 +268,10 @@ if __name__ == '__main__':
             model_fpath = "./models_dir/{}.json".format(model_fname)
             print (model_fpath)
             model_json = None
+            if ose(model_fpath):
+                pass
+            else:
+                model_fpath = "./models_dir/{}/{}.json".format(output_id,model_fname)
             with open(model_fpath,"r") as fh:
                 model_json_str = fh.read()
             end2endmodel = model_from_json(model_json_str,
@@ -268,7 +283,8 @@ if __name__ == '__main__':
         except Exception as e:
             print (e)
 
-    print ("Model summary",end2endmodel.summary())
+
+    #print ("Model summary",end2endmodel.summary())
     #end2endmodel.compile(optimizer='nadam', loss="binary_crossentropy")
     model_output_dim = end2endmodel.outputs[0].shape[1]
     print ("model output layer shape",end2endmodel.outputs[0].shape)
@@ -352,7 +368,7 @@ if __name__ == '__main__':
             
             batch_indices.append(batch_idx)
             #files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
-            
+
             b_it += 1
             if b_it == batch_size:
                 break
@@ -364,18 +380,19 @@ if __name__ == '__main__':
 
         #print("files_in_batch:",str(files_in_batch))
         preds_out = end2endmodel.predict_on_batch(test_batch)
-        #print("predictions tensor shape", preds_out.shape)
+        print("predictions tensor shape", preds_out.shape)
         if not os.path.exists("./{}".format(output_id)):
             os.makedirs(output_id)
         preds_out_file = open("./{}/{}_{}_{}_preds_out.txt".format(output_id,
-                               args.train_file_id, args.train_timestamp,timestamp),"w")
+                               args.train_file_id, 
+                               args.train_timestamp,timestamp),"w")
         print("predictions")
         for pr in preds_out:
-            
             preds_out_file.write("{}\n".format(pr))
         preds_out_file.close()
         print("starting captioning")
         highest_idx = np.argmax(preds_out, axis=1)
+        found_highest_idx = False
         for b_i,f in enumerate(files_in_batch):
             concept_score_triples = []
             
@@ -386,10 +403,13 @@ if __name__ == '__main__':
                 if v == highest_idx[b_i]:
                   highest_class = k
                   highest_score = preds_out[b_i, v]
+                  found_highest_idx =True
                 concept_score_triples.append(new_tri)
+            if not found_highest_idx:
+                print( "{} the class name not found".format(highest_idx[b_i] ) )
             caption_image(f, concept_score_triples, output_dir, 
                     caption_threshold = 0.08 , trans_dict = None, true_classname= None,
-                    highest_pair     = [highest_class, highest_score] )
+                    highest_pair     = [highest_class, highest_score] if found_highest_idx else None  )
         batch_ctr += 1
         if batch_ctr == batch_ctr_max:
             break

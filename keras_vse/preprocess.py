@@ -370,7 +370,7 @@ def GI_generic_classes_BBN(
         colnames = ["ontological_type", "image_path", "title", "caption"]
         labels_df = pd.read_csv(labels_tsv, names = colnames, sep="\t")
         labels_df.columns = ["class", "filenames", "page_title", "image_caption"]
-        labels_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/GI_Training_BBN.csv")
+        labels_df.to_csv("/nfs/mercury-11/u113/projects/AIDA/GI_Training_BBN.tsv",sep="\t")
 
 
 

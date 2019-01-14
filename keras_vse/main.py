@@ -71,7 +71,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_id', default=None, type=str)
     parser.add_argument('--final_act_layer', default= "softmax", choices = ["softmax" , "sigmoid"], type=str)
     parser.add_argument('--trainable_image_cnn', default= False, action ="store_true")
-    
+    parser.add_argument('--class_ct_threshold', default = 120, type = int)
     args = parser.parse_args()
     
     debug = args.debug
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     class_counts = train_df["class"].value_counts()
     class_counts.to_csv("{}_class_counts_orig.csv".format(args.source_dataset))
         
-    class_ct_threshold = 120
+    class_ct_threshold = args.class_ct_threshold
     if minimal_train_set:
         class_ct_threshold = 0
     
