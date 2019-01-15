@@ -47,10 +47,12 @@ if __name__ == '__main__':
     parser.add_argument('--source_dataset', default="GI",choices = ["GI","VG","OI","GCC","AIDASeedling"])
     parser.add_argument('--debug', default=False,  action="store_true")
     parser.add_argument('--fix_gpu', type=int, default=-1)
+    parser.add_argument('--dataaug', default=False,  action="store_true")
     parser.add_argument('--verbose', default=False,  action="store_true")
     parser.add_argument('--image_only_model', default=False,  action="store_true")
     parser.add_argument('--exp_id',default=None,type=str)
     parser.add_argument('--model_train_timestamp', dest="train_timestamp", type=str)
+    parser.add_argument('--class_ct_threshold', default = 120, type = int)
     
     args = parser.parse_args()
     
@@ -100,12 +102,12 @@ if __name__ == '__main__':
         else:
             dataset_localized = True
     elif args.source_dataset=="AIDASeedling":
-        KERAS_DATAGEN_DIR = "/nfs/raid66/u12/users/rbock/aida/image_captions/data_collection/images"
-        regex_exp = r'/nfs/raid66/u12/users/rbock/aida/image_captions/data_collection/images(.*)'
+        KERAS_DATAGEN_DIR = "/nfs/raid66/u12/users/rbock/aida/image_captions/annotation_of_seedling_corpus/images"
+        regex_exp = r'/nfs/raid66/u12/users/rbock/aida/image_captions/annotation_of_seedling_corpus/images(.*)'
         LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/AIDASeedling/image_data"
         replace_regex_exp = r'/export/u10/sadali/AIDA/images/AIDASeedling/image_data\1'
         if not os.path.exists (osp(LOCAL_STORAGE_DIR,"LDC2018E01")):
-            print ("copyying VG data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+            print ("copyying AIDASeedling data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
             try:
                 copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
                 dataset_localized = True
@@ -126,15 +128,8 @@ if __name__ == '__main__':
             dataset_localized = True
 
     # Form the experiment,training identifier
-    train_file_id =os.path.basename(args.train_csv_file)
-    train_file_id = os.path.splitext(train_file_id)[0]
-    if args.image_only_model:
-        train_file_id +='_image_only'
-    if args.dataaug:
-        train_file_id +='_aug'
-    train_file_id +='_epoch_{}'.format(args.epoch)
-    if args.exp_id is not None:
-        output_id = args.exp_id+'_'+train_file_id
+    output_id =  args.exp_id +"_"+args.train_file_id
+    
     if not os.path.exists("./{}".format(output_id)):
         os.makedirs(output_id)
     #Determine GPU number
@@ -151,12 +146,16 @@ if __name__ == '__main__':
     #check_gpu_availability()
     #session = tf.Session(config=config)
     set_session(tf.Session(config=config))
-
-    synynomys = pd.read_csv(args.synset_file, encoding='utf8', header = True)
+            # trans_df = pd.read_csv(
+            # "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/all_image_concepts_GI_specific_translation_en_es_ru_uk_gen_limit.csv",
+            # encoding="utf-16",
+            # dtype="str"
+            # )
+    synynomys = pd.read_csv(args.synset_file, encoding='utf-16', dtype="str")
     bbn_anno_labels= dict()
     recode_dict =dict()
     set_of_tuples = dict()
-    for row in synynomys.iterrows():
+    for idx,row in synynomys.iterrows():
             generic_eng_name = row[0]
             generic_eng_name = generic_eng_name.strip('"')
             generic_eng_name = generic_eng_name.strip("'")
@@ -210,8 +209,14 @@ if __name__ == '__main__':
     new_class_counts = test_df["class"].value_counts()
     new_class_counts.to_csv("class_counts_test.csv")
     try:
-        with open ("./models_dir/{}_class_indices.json".format(model_fname),"r") as json_fh:
-            class_indices_for_model = json.load(json_fh)
+        if True: #not args.restore_checkpoint:
+            class_indices_json = "./models_dir/{}/{}_{}_class_indices.json".format(output_id,model_fname,args.class_ct_threshold)
+        else:
+            class_indices_json = "./models_dir/GI_image_only_softmax_GI_keras_train_qa_image_only_epoch_3/GI_keras_train_qa_image_only_epoch_3_keras_vse_model-2019_01_09_23_31_class_indices.json"
+        print("class_indices file is located ",class_indices_json)
+        assert os.path.exists(class_indices_json)
+        with open (class_indices_json,"r") as json_fh:
+            class_indices_for_model = json.load(json_fh, encoding="utf8")
     except Exception as e:
         print (e)
         class_dirs=os.listdir(KERAS_DATAGEN_DIR)
@@ -237,7 +242,7 @@ if __name__ == '__main__':
 
     print (type(texts[0]))
 
-    with open('./{}/keras_captiontokenizer_{}.pkl'.format(output_id,train_file_id),"rb")  as kfh:
+    with open('./{}/keras_captiontokenizer_{}.pkl'.format(output_id,args.train_file_id),"rb")  as kfh:
         tokenizer=pkl.load(kfh)
     tokenizer.fit_on_texts(texts_ascii)
     word_index = tokenizer.word_index
@@ -265,7 +270,7 @@ if __name__ == '__main__':
     end2endmodel.compile(optimizer='nadam', loss="categorical_crossentropy")
 
     # For debugging, print some weights
-    with open("{}_trained_layer_weights_{}.txt".format(train_file_id,timestamp),"w") as fh:
+    with open("{}_trained_layer_weights_{}.txt".format(args.train_file_id,timestamp),"w") as fh:
         fh.write("dense_1 wts: \n")
         fh.write(str( end2endmodel.get_layer('dense_1').get_weights()))
         if not args.image_only_model:
@@ -279,8 +284,6 @@ if __name__ == '__main__':
 
 
 
-    with open ("./models_dir/{}/{}_class_indices.json".format(output_id,model_fname),"r") as json_fh:
-        class_indices_for_model = json.load (json_fh)
 
     #create a test data generator for testing/sanity-checking the trained model  using training data
     test_datagen = None
@@ -381,7 +384,7 @@ if __name__ == '__main__':
         print("predictions tensor shape", preds_out.shape)
         if not os.path.exists("./{}".format(output_id)):
             os.makedirs(output_id)
-        preds_out_file = open("./{}/{}_{}_{}_preds_out.txt".format(output_id,
+        preds_out_file = open("./{}/{}_{}_{}_eval_preds_out.txt".format(output_id,
                                args.train_file_id, 
                                args.train_timestamp,timestamp),"w")
         print("predictions")
