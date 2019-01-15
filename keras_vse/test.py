@@ -47,8 +47,7 @@ if __name__ == '__main__':
     parser.add_argument('--tokenizer_pkl_file_id', dest="train_file_id", type=str)
     parser.add_argument('--exp_id', dest="exp_id", type=str)
     parser.add_argument('--model_train_timestamp', dest="train_timestamp", type=str)
-    parser.add_argument('--glove_embed_file',
-        default="/nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt" , type=str)
+
     parser.add_argument('--length', type=int, default=None)
     parser.add_argument('--dataaug', default=False,  action="store_true")
     parser.add_argument('--maxtokencount', type=int, default=32198)
@@ -190,7 +189,8 @@ if __name__ == '__main__':
         new_class_counts.to_csv("class_counts_test.csv")
     try:
         if not args.restore_checkpoint:
-            class_indices_json = "./models_dir/{}/{}_class_indices.json".format(output_id,model_fname)
+            
+            class_indices_json = "./models_dir/{}/{}_{}_class_indices.json".format(output_id,model_fname,args.class_ct_threshold)
         else:
             class_indices_json = "./models_dir/GI_image_only_softmax_GI_keras_train_qa_image_only_epoch_3/GI_keras_train_qa_image_only_epoch_3_keras_vse_model-2019_01_09_23_31_class_indices.json"
         print("class_indices file is located ",class_indices_json)
