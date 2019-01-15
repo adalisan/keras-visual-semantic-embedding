@@ -5,6 +5,7 @@ import argparse
 import datetime
 from os.path import join as osp
 from shutil import copytree, rmtree
+from math import ceil
 import json
 import numpy as np
 from models import encode_sentences
@@ -43,12 +44,13 @@ if __name__ == '__main__':
     parser.add_argument('--tokenizer_pkl_file_id', dest="train_file_id", type=str)
     parser.add_argument('--eval_csv_file', type=str)
     parser.add_argument('--synset_file', type=str)
-    parser.add_argument('--source_dataset', default="GI",choices = ["GI","VG","OI","GCC"])
+    parser.add_argument('--source_dataset', default="GI",choices = ["GI","VG","OI","GCC","AIDASeedling"])
     parser.add_argument('--debug', default=False,  action="store_true")
     parser.add_argument('--fix_gpu', type=int, default=-1)
     parser.add_argument('--verbose', default=False,  action="store_true")
     parser.add_argument('--image_only_model', default=False,  action="store_true")
     parser.add_argument('--exp_id',default=None,type=str)
+    parser.add_argument('--model_train_timestamp', dest="train_timestamp", type=str)
     
     args = parser.parse_args()
     
@@ -68,18 +70,17 @@ if __name__ == '__main__':
         LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared"
         replace_regex_exp = r'/export/u10/sadali/AIDA/images/GoogleImageDownload_Rus_Scenario/squared\1'
         #Use bash script to crop and resize the images
-    if not os.path.exists (osp(LOCAL_STORAGE_DIR,"successful_local_clone")):
-        print ("trying to copy to local storage")
-        try:
-            os.system("resize_and_copy_local.sh valid_images_unique.txt" )
-            #copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
-            dataset_localized = True
-            with open(osp(LOCAL_STORAGE_DIR,"successful_local_clone"),"w") as fh:
-                fh.write(timestamp+"\n")
+        if not os.path.exists (osp(LOCAL_STORAGE_DIR,"successful_local_clone")):
+            print ("trying to copy to local storage")
+            try:
+                os.system("resize_and_copy_local.sh valid_images_unique.txt" )
+                #copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+                dataset_localized = True
+                with open(osp(LOCAL_STORAGE_DIR,"successful_local_clone"),"w") as fh:
+                    fh.write(timestamp+"\n")
 
-
-        except Exception as e:
-            dataset_localized = False
+            except Exception as e:
+                dataset_localized = False
 
     elif args.source_dataset=="VG":
         KERAS_DATAGEN_DIR = "/nfs/mercury-11/u113/projects/AIDA/VisualGenomeData/image_data"
@@ -143,16 +144,13 @@ if __name__ == '__main__':
             print ("Overwriting gpu id from cfg file with given arg {}".format(args.fix_gpu))
             gpu_id_str = str(args.fix_gpu)
     #%% 
-    
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     config.gpu_options.visible_device_list = gpu_id_str
 
-
     #check_gpu_availability()
     #session = tf.Session(config=config)
     set_session(tf.Session(config=config))
-
 
     synynomys = pd.read_csv(args.synset_file, encoding='utf8', header = True)
     bbn_anno_labels= dict()
@@ -162,7 +160,7 @@ if __name__ == '__main__':
             generic_eng_name = row[0]
             generic_eng_name = generic_eng_name.strip('"')
             generic_eng_name = generic_eng_name.strip("'")
-            
+
             for  k in row:
                     recode_dict.update({k:generic_eng_name})
 
@@ -178,8 +176,6 @@ if __name__ == '__main__':
 
             set_of_tuples.update({row[0]:syns})
 
-
-
     #REad the dataafreme which includes filepaths , captions and classnames
     test_df = pd.read_csv(args.train_csv_file, encoding='utf8')
     if verbose:
@@ -187,7 +183,7 @@ if __name__ == '__main__':
     texts = test_df["image_captions"].values.tolist()
     class_names_pd =  pd.unique(test_df["class"].values)
     init_classnames =class_names_pd.tolist()
-    
+
     class_counts = test_df["class"].value_counts()
     class_counts.to_csv("class_counts_orig.csv")
     class_ct_threshold = 9
@@ -224,7 +220,7 @@ if __name__ == '__main__':
         classnames_ordered = ["class_{}".format(i) for i in range(854)]
         class_indices_for_model = dict(zip(classnames_ordered,range(len(classnames_ordered))))
         print(class_indices_for_model)
-        
+
     if dataset_localized:
         test_df =test_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
     
@@ -233,12 +229,12 @@ if __name__ == '__main__':
         print(test_df.shape)
     new_class_counts = test_df["class"].value_counts()
     new_class_counts.to_csv("class_counts_eval.csv")
-    
+
 
     # Given image captions read from csv , compile the vocab(list of tokens)  for encoding the captions
     texts_ascii = [k.encode('ascii','ignore').decode() for k in texts]
 
-    
+
     print (type(texts[0]))
 
     with open('./{}/keras_captiontokenizer_{}.pkl'.format(output_id,train_file_id),"rb")  as kfh:
@@ -282,7 +278,7 @@ if __name__ == '__main__':
             fh.write("\n")
 
 
-    
+
     with open ("./models_dir/{}/{}_class_indices.json".format(output_id,model_fname),"r") as json_fh:
         class_indices_for_model = json.load (json_fh)
 
@@ -337,38 +333,101 @@ if __name__ == '__main__':
 
             # Actually run the prediction on the training test.
     #   preds_out.write("{}\n".format(pr))
+            
     batch_ctr = 0
-    output_dir = "/export/u10/sadali/AIDA/images/captioned_images/{}".format(model_fname)
+    output_dir = "/export/u10/sadali/AIDA/images/captioned_images/{}-{}".format(output_id, model_fname)
 
     if not os.path.exists (output_dir):
         os.makedirs(output_dir)
-    
+
     model_classnames = [""]*model_output_dim
     for k,v in class_indices_for_model.items():
         model_classnames[v] = k
 
-    for batch in test_data_it:
-        example_it  = batch_ctr*batch_size 
-        batch_end   = min((example_it+batch_size), test_df.size)
-        files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
-        preds_out = end2endmodel.predict_on_batch(batch[0])
-        y_values = batch[1]
-        print(preds_out.shape)
+    end_of_samples = False
+    b_it = 0
+    sample_count = len(test_data_it.filenames)
+    batch_ctr_max = ceil(sample_count/batch_size )
+    dec_vector = np.zeros(shape=(sample_count,model_output_dim))
+    while not end_of_samples:
+        batch_indices = []
+        batch_idx =None
+        for batch_idx in next(test_data_it.index_generator, -1):
+            if batch_idx < 0:
+                print(batch_idx)
+                end_of_samples = True
+                break
+            #print (batch_ctr)
+            
+            batch_indices.append(batch_idx)
+            #files_in_batch = test_df["filenames"][example_it:batch_end].values.tolist()
+            
+
+            b_it += 1
+            if b_it == batch_size:
+                break
+        if batch_idx <0 :
+            end_of_samples = True
+        #print(batch_indices)
+        
+        test_batch     = test_data_it._get_batches_of_transformed_samples(batch_indices)
+        files_in_batch = [test_data_it.filenames[k] for k in batch_indices]
+
+        #print("files_in_batch:",str(files_in_batch))
+        y_values = test_batch[1]
+        preds_out = end2endmodel.predict_on_batch(test_batch[0])
+        dec_vector[batch_indices,:] = preds_out
+
+        print("predictions tensor shape", preds_out.shape)
+        if not os.path.exists("./{}".format(output_id)):
+            os.makedirs(output_id)
+        preds_out_file = open("./{}/{}_{}_{}_preds_out.txt".format(output_id,
+                               args.train_file_id, 
+                               args.train_timestamp,timestamp),"w")
+        print("predictions")
+        for pr in preds_out:
+            preds_out_file.write("{}\n".format(pr))
+        preds_out_file.close()
+        print("starting captioning")
+        highest_idx = np.argmax(preds_out, axis=1)
+        found_highest_idx = False
+
+
         for b_i,f in enumerate(files_in_batch):
             concept_score_triples = []
+
+            highest_class = ""
             for k,v in class_indices_for_model.items():
-                new_tri= (k,preds_out[b_i,v],preds_out[b_i,v])
+                new_tri = (k, preds_out[b_i,v], preds_out[b_i,v])
+                #new_tri= (k, preds_out[v,b_i], preds_out[v,b_i])
+                if v == highest_idx[b_i]:
+                  highest_class = k
+                  highest_score = preds_out[b_i, v]
+                  found_highest_idx = True
                 concept_score_triples.append(new_tri)
             if len(y_values.shape) > 1 :
                 class_idx = y_values[b_i] 
             else:
                 class_idx = np.argmax(y_values[b_i,:])
-            gt_classname = model_classnames[class_idx] + \
-                           bbn_anno_labels.get(model_classnames[class_idx], "")
+            generic_class = bbn_anno_labels.get(model_classnames[class_idx], "")
+            gt_classname  = model_classnames[class_idx] +" - "  + \
+                           generic_class
+            
+            if model_classnames[class_idx] in bbn_anno_labels.keys():
+                y_generic_class_idx = class_indices_for_model.get(model_classnames[class_idx],-1)
+                if y_generic_class_idx == -1:
+                    print ("model class list is ")
+                    print(class_indices_for_model)
+                    print("while translation/synset generic class list is")
+                    print(bbn_anno_labels.keys())
+                
             caption_image(f, concept_score_triples, output_dir, 
-                caption_threshold = 0.3 ,trans_dict=None, 
-                true_classname = gt_classname)
+                caption_threshold = 0.08 , trans_dict=None, 
+                true_classname = gt_classname, 
+                highest_pair   = [highest_class, highest_score] if found_highest_idx else None  )
         batch_ctr += 1
+        if batch_ctr == batch_ctr_max:
+            break
         if batch_ctr % 200 == 0 :
             print ("{}th batch of images used on model" .format(batch_ctr))
 
