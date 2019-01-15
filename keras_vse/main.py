@@ -72,6 +72,8 @@ if __name__ == '__main__':
     parser.add_argument('--final_act_layer', default= "softmax", choices = ["softmax" , "sigmoid"], type=str)
     parser.add_argument('--trainable_image_cnn', default= False, action ="store_true")
     parser.add_argument('--class_ct_threshold', default = 120, type = int)
+    parser.add_argument('--lr', default = .004, type = float)
+    
     
     parser.add_argument('--limit_to_ann_classes', default= False,dest="limit_to_evaluable_classes", action ="store_true")
     
@@ -265,8 +267,6 @@ if __name__ == '__main__':
                 print (e)
         if dataset_localized_extra:
             train_df =train_df.replace(KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR, regex= True)
-
-
     print ("new examplar count {}".format(len(train_df)))
     classnames= [k for k in init_classnames if k not in untrainable_classnames] 
     if verbose:
@@ -301,7 +301,7 @@ if __name__ == '__main__':
                                         final_act = args.final_act_layer,
                                         trainable_early_layers= args.trainable_image_cnn)
     #optim_algo=Nadam(lr=.004 ,clipnorm=1.)
-    optim_algo=Nadam(lr=.004 )
+    optim_algo=Nadam(lr=args.lr )
     #end2endmodel.compile(optimizer=optim_algo, loss="categorical_crossentropy")
     end2endmodel.compile(optimizer=optim_algo, loss="binary_crossentropy")
 
@@ -416,7 +416,7 @@ if __name__ == '__main__':
         os.makedirs(tensorboard_logs_dir)
     tb_callback = TensorBoard(log_dir = tensorboard_logs_dir,
                               embeddings_layer_names = ["l2_normalize_1","l2_normalize_2"],
-                              embeddings_data=vis_input_list)
+                              embeddings_data = vis_input_list)
     callbacks_list = [model_ckpt,tb_callback]
 
     # save the model config under models_dir as json
