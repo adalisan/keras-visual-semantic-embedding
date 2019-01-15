@@ -123,12 +123,12 @@ if __name__ == '__main__':
         else:
             dataset_localized = True
     elif args.source_dataset=="AIDASeedling":
-        KERAS_DATAGEN_DIR = "/nfs/raid66/u12/users/rbock/aida/image_captions/data_collection/images"
-        regex_exp = r'/nfs/raid66/u12/users/rbock/aida/image_captions/data_collection/images(.*)'
+        KERAS_DATAGEN_DIR = "/nfs/raid66/u12/users/rbock/aida/image_captions/annotation_of_seedling_corpus/images"
+        regex_exp = r'/nfs/raid66/u12/users/rbock/aida/image_captions/annotation_of_seedling_corpus/images(.*)'
         LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/AIDASeedling/image_data"
         replace_regex_exp = r'/export/u10/sadali/AIDA/images/AIDASeedling/image_data\1'
         if not os.path.exists (osp(LOCAL_STORAGE_DIR,"LDC2018E01")):
-            print ("copyying VG data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
+            print ("copyying AIDASeedling data from ",KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
             try:
                 copytree(KERAS_DATAGEN_DIR,LOCAL_STORAGE_DIR)
                 dataset_localized = True
