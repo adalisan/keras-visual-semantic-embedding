@@ -90,7 +90,7 @@ def build_image_encoder(weights=None, input_dim=4096, embedding_dim=1024, normal
     )(init_model.outputs[0])
     if normalize:
         x = L2Normalize()(x)
-    model = Model(input=init_model.inputs[0], output=x)
+    model = Model(inputs=[init_model.inputs[0]], outputs=[x])
     
     plot_model(model, to_file='image_model.png')
     return model, init_model
