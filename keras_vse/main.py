@@ -73,8 +73,7 @@ if __name__ == '__main__':
     parser.add_argument('--trainable_image_cnn', default= False, action ="store_true")
     parser.add_argument('--class_ct_threshold', default = 120, type = int)
     parser.add_argument('--lr', default = .004, type = float)
-    
-    
+    parser.add_argument('--use_only_curated_data', default= False, action ="store_true")
     parser.add_argument('--limit_to_ann_classes', default= False,dest="limit_to_evaluable_classes", action ="store_true")
     
     args = parser.parse_args()
@@ -149,6 +148,8 @@ if __name__ == '__main__':
             dataset_localized = True
     else:
         minimal_train_set = True
+    if args.use_only_curated_data:
+        minimal_train_set = True
     # Form the experiment,training identifier
     train_file_id =os.path.basename(args.train_csv_file)
     train_file_id = os.path.splitext(train_file_id)[0]
@@ -182,12 +183,20 @@ if __name__ == '__main__':
 
     #REad the dataframe which includes filepaths , captions and classnames
     train_df = pd.read_csv(args.train_csv_file, encoding='utf8')
+
+
+    labels_df= pd.read_csv("/nfs/mercury-11/u113/projects/AIDA/GI_Training_BBN.tsv",
+                            encoding='utf8',sep="\t",header =0)
+    print(labels_df.columns)
+    labels_df.columns  = ["row_index" , "class", "filenames", "page_title", "image_captions"]
+
     if verbose:
         print( train_df.apply(lambda x: pd.lib.infer_dtype(x.values)))
 
-    texts = train_df["image_captions"].values.tolist()
-    class_names_pd =  pd.unique(train_df["class"].values)
-    init_classnames =class_names_pd.tolist()
+    #Update the filepaths if images were copied to local storage
+    if dataset_localized :
+        train_df =train_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
+    
 
     class_counts = train_df["class"].value_counts()
     class_counts.to_csv("{}_class_counts_orig.csv".format(args.source_dataset))
@@ -197,13 +206,13 @@ if __name__ == '__main__':
         class_ct_threshold = 0
 
     #limiting to classes.
-    if args.limit_to_evaluable_classes:
+    if not args.use_only_curated_data and  args.limit_to_evaluable_classes:
         trans_df = pd.read_csv(
             "/nfs/mercury-11/u113/projects/AIDA/GoogleImageDownload_Rus_Scenario/all_image_concepts_GI_specific_translation_en_es_ru_uk_gen_limit.csv",
             encoding="utf-16",
             dtype="str"
             )
-        
+
         print (trans_df.head())
         #first get all the translations
         class_mapping = dict()
@@ -213,7 +222,7 @@ if __name__ == '__main__':
                 continue
             for i in row:
                 
-                print ("type_i",type(i))
+                #print ("type_i",type(i))
                 if pd.isnull(i):
                     print (i)
                 else:
@@ -225,8 +234,9 @@ if __name__ == '__main__':
         class_counts = train_df["class"].value_counts()
 
         train_df = train_df.replace(class_mapping)
-        init_classnames = pd.unique(train_df["class"].values)
+        
 
+    init_classnames = pd.unique(train_df["class"].values)
     #REmove any classes that have less # of examples than class_ct_threshold
     untrainable_classes    = class_counts < class_ct_threshold 
     untrainable_classnames = untrainable_classes[untrainable_classes].index.tolist()
@@ -234,24 +244,35 @@ if __name__ == '__main__':
         print(untrainable_classnames)
         print (len(train_df))
     train_df = train_df.loc[~train_df['class'].isin(untrainable_classnames),:]
-
-    labels_df= pd.read_csv("/nfs/mercury-11/u113/projects/AIDA/GI_Training_BBN.tsv",
-                            encoding='utf8',sep="\t",header =0)
-    print(labels_df.columns)
-    labels_df.columns  = ["row_index" , "class", "filenames", "page_title", "image_captions"]
     
-    train_df.append(labels_df[["class", "filenames", "image_captions"]])
 
-    #Update the filepaths if images were copied to local storage
-    if dataset_localized :
-        train_df =train_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
-    print (train_df["filenames"].head())
+    
+    if args.use_only_curated_data:
+        train_df = labels_df[["class", "filenames", "image_captions"]].copy()
+        page_title_col = labels_df["page_title"]
+        page_title_col.name= "image_captions"
+        #missing_caps=pd.isnull(labels_df["image_captions"])
+        #print ("missing_caps",missing_caps)
+        #train_df["image_captions"]=labels_df["page_title"]
+        train_df.update(page_title_col, overwrite=False)
+        #train_df["image_captions"].update(labels_df["page_title"],overwrite)
+        print(train_df["class"].value_counts())
+        init_classnames = pd.unique(train_df["class"].values)
+    else:
+        train_df.append(labels_df[["class", "filenames", "image_captions"]])
+        page_title_col = labels_df["page_title"].copy()
+        page_title_col.name= "image_captions"
+        train_df.update(page_title_col,overwrite=False)
+
+    classnames= [k for k in  pd.unique(train_df["class"].values) if k not in untrainable_classnames] 
+    texts = train_df["image_captions"].values.tolist()
+    
     KERAS_DATAGEN_DIR_EXTRA = "/nfs/raid66/u12/users/rbock/aida/image_captions/web_collection/20190110/aggregated"
     regex_exp = r'/nfs/raid66/u12/users/rbock/aida/image_captions/web_collection/20190110/aggregated(.*)'
     LOCAL_STORAGE_DIR = "/export/u10/sadali/AIDA/images/BBN_GI_minimal/image_data"
     replace_regex_exp = r'/export/u10/sadali/AIDA/images/BBN_GI_minimal/image_data\1'
     dataset_localized_extra = False
-    if not os.path.exists (osp(LOCAL_STORAGE_DIR,"raw")):
+    if not os.path.exists (osp(LOCAL_STORAGE_DIR,"raw","Police")):
         print ("copyying BBN-GI data from ",KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR)
         try:
             copytree(KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR)
@@ -265,10 +286,13 @@ if __name__ == '__main__':
                 rmtree(osp(LOCAL_STORAGE_DIR,"raw"))
             except Exception as e:
                 print (e)
-        if dataset_localized_extra:
-            train_df =train_df.replace(KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR, regex= True)
+    else:
+        dataset_localized_extra = True
+    if dataset_localized_extra:
+        train_df =train_df.replace(KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR, regex= True)
+    print (train_df["filenames"].head())
     print ("new examplar count {}".format(len(train_df)))
-    classnames= [k for k in init_classnames if k not in untrainable_classnames] 
+    
     if verbose:
         print("Num of classes ")
         print (len(classnames))
@@ -285,7 +309,7 @@ if __name__ == '__main__':
     tokenizer = Tokenizer(num_words=args.maxtokencount)
     tokenizer.fit_on_texts(texts_ascii)
     
-    print (type(texts[0]))
+    #print (type(texts[0]))
     word_index = tokenizer.word_index
     print('Found %s unique tokens.' % len(word_index))
     with open('./{}/keras_captiontokenizer_{}.pkl'.format(output_id,train_file_id),"wb")  as kfh:
@@ -345,14 +369,17 @@ if __name__ == '__main__':
     sampled_rows = train_df.sample(vis_sample_size)
     vis_input =  np.zeros (shape=(vis_sample_size,256,256),dtype="float32")
     vis_samples_classes= [""]*vis_sample_size
+    if args.source_dataset == "GI":
+        imagedir_root = LOCAL_STORAGE_DIR
+        imagedir_root = LOCAL_STORAGE_DIR+"/raw/"
+    else:
+        imagedir_root = LOCAL_STORAGE_DIR
+        imagedir_root = LOCAL_STORAGE_DIR+"/raw/"
     if  args.image_only_model:
-        if args.source_dataset == "GI":
-            imagedir_root = LOCAL_STORAGE_DIR
-        else:
-            imagedir_root = LOCAL_STORAGE_DIR
+
         print (os.listdir(imagedir_root))
         print ("train_df columns")
-        print (  train_df.describe())
+        #print (  train_df.describe())
         img_arrays         = map (lambda x:np.expand_dims(img_to_array(load_img(x, target_size=(256, 256))), axis=0),sampled_rows["filenames"].values.tolist())
         #cap_encoded_arrays = map (lambda x:np.expand_dims(tokenizer.texts_to_matrix(x), axis=0), sampled_rows["image_captions"].values.tolist())
         vis_input = np.concatenate(list(img_arrays),axis=0)
@@ -378,25 +405,32 @@ if __name__ == '__main__':
                     #                  follow_links= True
                                                         )
     else:
+        print (imagedir_root)
         cap_input =  np.zeros (shape=(vis_sample_size,len(tokenizer.word_index)))
         ro_i = 0
-        print ("type(sampled_rows)",type(sampled_rows))
+        #print ("type(sampled_rows)",type(sampled_rows))
         img_arrays         = map (lambda x:np.expand_dims(img_to_array(load_img(x, target_size=(256, 256))), axis=0),sampled_rows["filenames"].values.tolist())
         cap_input = tokenizer.texts_to_matrix(sampled_rows["image_captions"].values.tolist())
         #cap_encoded_arrays = map (lambda x:np.expand_dims(tokenizer.texts_to_matrix(x), axis=0), )
-        print (type(img_arrays))
+        #print (type(img_arrays))
         vis_input = np.concatenate(list(img_arrays),axis=0)
         #cap_input = np.concatenate(list(cap_encoded_arrays),axis=0)
-        print (vis_input.shape)
-        print (cap_input.shape)
+        print ("vis input shapes", vis_input.shape,cap_input.shape)
         vis_input_list = [vis_input,cap_input]
+        gen_classes_input = classnames
+        directory_input = None
+        print(classnames)
+        # if minimal_train_set:
+        #     gen_classes_input=None
+        #     directory_input= imagedir_root
         train_data_it = train_datagen.flow_from_dataframe( 
                                                         dataframe= train_df,
-                                                        directory= None,
+                                                        #directory= imagedir_root,
+                                                        directory= directory_input,
                                                         x_col=["filenames","image_captions"], 
                                                         y_col="class", has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
-                                                        classes=classnames, class_mode='categorical',
+                                                        classes=gen_classes_input, class_mode='categorical',
                                                         batch_size=train_batch_size, shuffle=False, seed=None,
                                                         save_to_dir=None,
                                                         save_prefix='',
