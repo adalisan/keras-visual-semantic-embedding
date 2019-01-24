@@ -16,6 +16,7 @@ from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
 from keras_image_caption_data_generator import MultimodalInputDataGenerator as datagen
 from keras.preprocessing.image import ImageDataGenerator as IDG
+from keras.utils import to_categorical
 from models import concept_detector
 
 from keras import backend  as K
@@ -151,7 +152,7 @@ if __name__ == '__main__':
             # encoding="utf-16",
             # dtype="str"
             # )
-    synynomys = pd.read_csv(args.synset_file, encoding='utf-16', dtype="str")
+    synynomys = pd.read_csv(args.synset_file, encoding='utf-16', dtype="object")
     bbn_anno_labels= dict()
     recode_dict =dict()
     set_of_tuples = dict()
@@ -164,7 +165,7 @@ if __name__ == '__main__':
                     recode_dict.update({k:generic_eng_name})
 
             syns = list(row[1:-1])
-            if row[-1] != "":
+            if row[-1] != "" and not pd.isnull(row[-1]):
                 bbn_label = row[-1]
                 syns.append(bbn_label)
                 # if bbn_label in bbn_anno_labels.keys():
@@ -304,8 +305,8 @@ if __name__ == '__main__':
                                                         directory= None,
                                                         x_col="filenames", y_col="class", has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
-                                                        class_mode=None,
-                                                    batch_size=batch_size, shuffle=False, seed=None,
+                                                        class_mode='sparse',
+                                                        batch_size=batch_size, shuffle=False, seed=None,
                                                         save_to_dir=None,
                                                         save_prefix='',
                                                         save_format='png',
@@ -320,7 +321,7 @@ if __name__ == '__main__':
                                                         x_col=["filenames","image_captions"], 
                                                         y_col="class", has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
-                                                        class_mode=None,
+                                                        class_mode='sparse',
                                                         batch_size=batch_size , shuffle=False, seed=None,
                                                         save_to_dir=None,
                                                         save_prefix='',
@@ -408,26 +409,30 @@ if __name__ == '__main__':
                   highest_score = preds_out[b_i, v]
                   found_highest_idx = True
                 concept_score_triples.append(new_tri)
-            if len(y_values.shape) > 1 :
-                class_idx = y_values[b_i] 
-            else:
-                class_idx = np.argmax(y_values[b_i,:])
+            # if len(y_values.shape) > 1 :
+            #     class_idx = y_values[b_i] 
+            # else:
+            #     class_idx = np.argmax(y_values[b_i,:])
+
+            class_idx = y_values[b_i]
             generic_class = bbn_anno_labels.get(model_classnames[class_idx], "")
             gt_classname  = model_classnames[class_idx] +" - "  + \
                            generic_class
-            
+
             if model_classnames[class_idx] in bbn_anno_labels.keys():
-                y_generic_class_idx = class_indices_for_model.get(model_classnames[class_idx],-1)
+                y_generic_class_idx = class_indices_for_model.get(model_classnames[class_idx], -1)
                 if y_generic_class_idx == -1:
                     print ("model class list is ")
                     print(class_indices_for_model)
                     print("while translation/synset generic class list is")
                     print(bbn_anno_labels.keys())
-                
+                to_categorical( class_idx, )
+
             caption_image(f, concept_score_triples, output_dir, 
                 caption_threshold = 0.08 , trans_dict=None, 
                 true_classname = gt_classname, 
-                highest_pair   = [highest_class, highest_score] if found_highest_idx else None  )
+                highest_pair   = [highest_class, highest_score] if found_highest_idx else None )
+
         batch_ctr += 1
         if batch_ctr == batch_ctr_max:
             break
