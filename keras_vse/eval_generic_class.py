@@ -11,6 +11,7 @@ import numpy as np
 from models import encode_sentences
 from models import build_pretrained_models
 import pandas as pd
+from sklearn.metrics  import classification_report
 from keras.optimizers import Nadam
 from keras.preprocessing.text import Tokenizer
 from keras.preprocessing.sequence import pad_sequences
@@ -161,7 +162,7 @@ if __name__ == '__main__':
             generic_eng_name = generic_eng_name.strip('"')
             generic_eng_name = generic_eng_name.strip("'")
 
-            for  k in row:
+            for  k in row[:-1]:
                     recode_dict.update({k:generic_eng_name})
 
             syns = list(row[1:-1])
@@ -173,6 +174,7 @@ if __name__ == '__main__':
                 # else:
                 #     bbn_anno_labels[bbn_label] = [row[0]]
                 bbn_anno_labels[row[0]]=bbn_label
+                bbn_anno_labels[bbn_label]=bbn_label
 
             set_of_tuples.update({row[0]:syns})
     
@@ -204,7 +206,7 @@ if __name__ == '__main__':
     print ("new examplar count {}".format(len(test_df)))
     #classnames= [k for k in init_classnames if k not in untrainable_classnames] 
 
-    test_df = test_df.replace(recode_dict)
+    #test_df = test_df.replace(recode_dict)
     classnames = pd.unique(test_df["class"].values)
     if verbose:
         print("Num of classes ")
@@ -212,22 +214,16 @@ if __name__ == '__main__':
     new_class_counts = test_df["class"].value_counts()
     new_class_counts.to_csv("class_counts_test.csv")
     try:
-        if True: #not args.restore_checkpoint:
-            class_indices_json = "./models_dir/{}/{}_{}_class_indices.json".format(output_id,model_fname,args.class_ct_threshold)
-        else:
-            class_indices_json = "./models_dir/GI_image_only_softmax_GI_keras_train_qa_image_only_epoch_3/GI_keras_train_qa_image_only_epoch_3_keras_vse_model-2019_01_09_23_31_class_indices.json"
+        
+        class_indices_json = "./models_dir/{}/{}_{}_class_indices.json".format(output_id,model_fname,args.class_ct_threshold)
+        
         print("class_indices file is located ",class_indices_json)
         assert os.path.exists(class_indices_json)
         with open (class_indices_json,"r") as json_fh:
             class_indices_for_model = json.load(json_fh, encoding="utf8")
     except Exception as e:
         print (e)
-        class_dirs=os.listdir(KERAS_DATAGEN_DIR)
-        classnames_ordered = np.sort(np.array(class_dirs)).tolist()
-        print ("This is a temp hack.Should not be necessary if class_indices.json is available")
-        classnames_ordered = ["class_{}".format(i) for i in range(854)]
-        class_indices_for_model = dict(zip(classnames_ordered,range(len(classnames_ordered))))
-        print(class_indices_for_model)
+        raise ValueError("Unable to find class indices json file")
 
     if dataset_localized:
         test_df =test_df.replace(KERAS_DATAGEN_DIR, LOCAL_STORAGE_DIR, regex= True)
@@ -349,22 +345,28 @@ if __name__ == '__main__':
     model_classnames = [""]*model_output_dim
     for k,v in class_indices_for_model.items():
         model_classnames[v] = k
-
+    print("bbn_anno_labels ",bbn_anno_labels)
+    print(bbn_anno_labels["Wreckage"])
     generator_classnames = dict()
     generator_class_count = 0
-    for k,v in test_data_it.class_indices:
+    for k,v in test_data_it.class_indices.items():
+        print(type(k))
         generator_classnames[v]=k
         if v> generator_class_count:
             generator_class_count =v 
-
+    print("generator_classnames ",generator_classnames)
+    print(class_indices_for_model)
     generator_class_count +=  1
+    print("generator_class_count ",generator_class_count)
 
 
     end_of_samples = False
     b_it = 0
     sample_count = len(test_data_it.filenames)
     batch_ctr_max = ceil(sample_count/batch_size )
-    dec_vector = np.zeros(shape=(sample_count,model_output_dim))
+    prob_scores = np.zeros(shape=(sample_count,model_output_dim))
+    y_true_mat = np.zeros(shape=(sample_count,model_output_dim))
+    #y_true_vec_list=[]
     while not end_of_samples:
         batch_indices = []
         batch_idx =None
@@ -390,9 +392,9 @@ if __name__ == '__main__':
         files_in_batch = [test_data_it.filenames[k] for k in batch_indices]
 
         #print("files_in_batch:",str(files_in_batch))
-        y_values = test_batch[1]
+        y_true_values = test_batch[1]
         preds_out = end2endmodel.predict_on_batch(test_batch[0])
-        dec_vector[batch_indices,:] = preds_out
+        prob_scores[batch_indices,:] = preds_out
 
         print("predictions tensor shape", preds_out.shape)
         if not os.path.exists("./{}".format(output_id)):
@@ -426,32 +428,41 @@ if __name__ == '__main__':
             # else:
             #     class_idx = np.argmax(y_values[b_i,:])
 
-            class_idx = y_values[b_i]
+            class_idx = y_true_values[b_i]
+            print(generator_classnames[class_idx])
+            generic_class = bbn_anno_labels.get(generator_classnames[class_idx], generator_classnames[class_idx])
+            gt_generic_idx = test_data_it.class_indices[generic_class]
+            gt_class_namecaption  = generator_classnames[class_idx]
+            #print(gt_generic_idx)
+            if generic_class=="Misc":
+                gt_class_namecaption += " - "  + generic_class
+                y_true_mat[batch_indices[b_i],:] = 0
+            else:
+                trained_model_output_idx = class_indices_for_model[generic_class]
+                y_true_mat[batch_indices[b_i],:] =to_categorical(trained_model_output_idx,model_output_dim)
             
-            generic_class = bbn_anno_labels.get(generator_classnames[class_idx], "")
-            gt_classname  = generator_classnames[class_idx] +" - "  + \
-                           generic_class
 
-            if model_classnames[class_idx] in bbn_anno_labels.keys():
-                y_generic_class_idx = bbn_anno_labels.get(model_classnames[class_idx], -1)
-                if y_generic_class_idx == -1:
-                    print ("model class list is ")
-                    print(class_indices_for_model)
-                    print("while translation/synset generic class list is")
-                    print(bbn_anno_labels.keys())
-                test_specific_groundtruth = to_categorical( class_idx, generator_class_count)
-                generic_groundtruth       = to_categorical(y_generic_class_idx,generic_class_count)
-
+            
+            
             caption_image(f, concept_score_triples, output_dir, 
                 caption_threshold = 0.08 , trans_dict=None, 
-                true_classname = gt_classname, 
+                true_classname = gt_class_namecaption, 
                 highest_pair   = [highest_class, highest_score] if found_highest_idx else None )
 
         batch_ctr += 1
+        print("Test batch",batch_ctr)
         if batch_ctr == batch_ctr_max:
             break
         if batch_ctr % 200 == 0 :
             print ("{}th batch of images used on model" .format(batch_ctr))
+        class_decisions=to_categorical(np.argmax(prob_scores,axis=1),model_output_dim)
+    class_report =classification_report(y_true_mat, class_decisions)
+    print(class_report)
+    with open("class_report_{}.txt".format(model_fname),"w") as out_fh:
+        out_fh.write(str(class_report))
+        out_fh.write("\n")
 
-
+    class_report =classification_report(y_true_mat, class_decisions,output_dict=True)
+    report_df = pd.DataFrame(class_report).transpose()
+    report_df.to_csv("class_report_{}.csv".format(model_fname))
 
