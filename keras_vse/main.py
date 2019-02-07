@@ -291,7 +291,8 @@ if __name__ == '__main__':
     if dataset_localized_extra:
         train_df =train_df.replace(KERAS_DATAGEN_DIR_EXTRA, LOCAL_STORAGE_DIR, regex= True)
     print (train_df["filenames"].head())
-    print ("new examplar count {}".format(len(train_df)))
+    ex_count = len(train_df)
+    print ("new examplar count {}".format(ex_count))
     
     if verbose:
         print("Num of classes ")
@@ -470,7 +471,13 @@ if __name__ == '__main__':
     if debug:
         end2endmodel.fit_generator(train_data_it,steps_per_epoch=200)
     else:
-        end2endmodel.fit_generator(train_data_it,callbacks=callbacks_list, epochs=args.epoch)
+        steps_per_epoch=1+(ex_count//train_batch_size)
+        if args.dataaug:
+            steps_per_epoch = 3*steps_per_epoch
+        end2endmodel.fit_generator(train_data_it,
+         callbacks=callbacks_list,
+         epochs=args.epoch,
+         steps_per_epoch=steps_per_epoch)
     
     
     # save the model under models_dir
