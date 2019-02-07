@@ -297,6 +297,7 @@ class DataFramewithMultiModalInputIterator(Iterator):
                 class_indices=self.class_indices,
                 follow_links=follow_links,
                 df=True)
+                #df=False)
         else:
             if not has_ext:
                 raise ValueError('has_ext cannot be set to False'
@@ -391,6 +392,7 @@ class DataFramewithMultiModalInputIterator(Iterator):
                            target_size=self.target_size,
                            interpolation=self.interpolation)
             except Exception as e:
+                print (e)
                 print ("{} cannot be loaded. Remove from dataset ".format(img_path))
                 if i>0:
                     fname_alt =self.filenames[index_array[i-1]]
