@@ -1,8 +1,13 @@
 #! /usr/bin/env bash
-
+MODELS_DIR="/nfs/mercury-11/u113/projects/AIDA/aida_visual_concepts_in_context/video/visual-concept-detection/visual-semantic-embedding/keras_vse/models_dir"
 timestamp="$(date +"%F_%T")"
+me=`basename "$0"`
+mach=`hostname -s`
 python3 main.py --train_csv_file GI_keras_train_qa.csv \
     --glove_embed_file /nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt.pkl \
     --run_prediction \
     --source_dataset GI \
-     --epoch 5 --fix_gpu 1  | tee -a GI_keras_vse_runlog_$timestamp_${1:-orig_joint_model}.txt 
+    --epoch 3 --fix_gpu 1  --exp_id ${1:-orig_joint_model} \
+    --final_act_layer softmax | tee -a GI_keras_vse_runlog_$timestamp_${1:-orig_joint_model}_softmax.txt 
+
+echo "$timestamp\t$me\t$1\$mach\t$?" >> $HOME/local_experiments_log.txt

@@ -1,9 +1,13 @@
 #! /usr/bin/env bash
-
-timestamp="$(date +"%T")"
-python3 test.py --test_csv_file GI_keras_train_qa.csv --fix_gpu 1  \
+timestamp="$(date +"%F_%T")"
+me=`basename "$0"`
+mach=`hostname -s`
+python3 test.py --test_csv_file AIDA_seedling_keras_train_LDC2018E01.csv --fix_gpu 3  \
                 --image_only_model \
                 --model_file  /nfs/mercury-11/u113/projects/AIDA/aida_visual_concepts_in_context/video/visual-concept-detection/visual-semantic-embedding/keras_vse/models_dir/GI_keras_train_qa_image_only_epoch_5_keras_vse_model-2019_01_07_10_55.h5 \
                 --tokenizer_pkl_file_id GI_keras_train_qa_image_only_epoch_5 \
                 --model_train_timestamp 2019_01_07_20_51 \
-                --glove_embed_file /nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt.pkl  | tee -a GI_keras_vse_runlog_image_only_test_$timestamp.txt
+                --source_dataset AIDA_Seedling \
+                --glove_embed_file /nfs/mercury-11/u113/projects/AIDA/glove.840B.300d.txt.pkl  | tee -a AIDA_Seedling_keras_vse_runlog_image_only_test_$timestamp.txt
+echo "$timestamp\t$me\t$1\$mach\t$?" >> $HOME/local_experiments_log.txt
+
