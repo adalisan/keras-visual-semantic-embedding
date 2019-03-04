@@ -1,0 +1,16 @@
+#! /usr/bin/env bash
+MODELS_DIR="/nfs/mercury-11/u113/projects/AIDA/aida_visual_concepts_in_context/video/visual-concept-detection/visual-semantic-embedding/keras_vse/models_dir"
+timestamp="$(date +"%F_%T")"
+me=`basename "$0"`
+mach=`hostname -s`
+
+python3 eval_generic_class.py --train_csv_file AIDA_seedling_keras_train.csv --fix_gpu ${1:-0}  \
+                --model_file  $MODELS_DIR/joint_model_BBN_curated_annot_only_GI_keras_train_qa_aug_epoch_10/GI_keras_train_qa_aug_epoch_10_keras_vse_model-2019_01_24_17_44.h5 \
+                --tokenizer_pkl_file_id GI_keras_train_qa_aug_epoch_10 \
+                --class_ct_threshold 0 \
+                --synset_file  /home/sadali/pr/AIDA/GoogleImageDownload_Rus_Scenario/all_image_concepts_GI_specific_translation_en_es_ru_uk_gen_limit.csv \
+                --exp_id joint_model_BBN_curated_annot_only \
+                --model_train_timestamp 2019_01_24_17_44 \
+                --source_dataset AIDASeedling  | tee  \
+                -a AIDA_Seedling_keras_vse_runlog_eval_$timestamp_model_2019_01_24_17_44_finished.txt
+echo "$timestamp\t$me\t$1\$mach\t$?" >> $HOME/local_experiments_log.txt
