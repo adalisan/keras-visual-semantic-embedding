@@ -235,7 +235,9 @@ class DataFramewithMultiModalInputIterator(Iterator):
             import pandas as pd
         except ImportError:
             raise ImportError('Install pandas to use flow_from_dataframe.')
-        if type(x_cols[0]) != str or type(x_cols[1]) != str :
+        if type(x_cols[0]) != str:
+            raise ValueError("elements of x_cols  must be a string.")
+        if len(x_cols)>1 and  type(x_cols[1]) != str :
             raise ValueError("elements of x_cols  must be a string.")
         
 
@@ -368,7 +370,9 @@ class DataFramewithMultiModalInputIterator(Iterator):
                     (self.samples, self.num_classes))
         else:
             print('Found %d images.' % self.samples)
-        self.captions= list(self.df[x_cols[1]])
+        self.captions=None
+        if len(x_cols)>1:
+            self.captions= list(self.df[x_cols[1]])
 
         super(DataFramewithMultiModalInputIterator, self).__init__(self.samples,
                                                 batch_size,
@@ -427,12 +431,12 @@ class DataFramewithMultiModalInputIterator(Iterator):
                 img.save(os.path.join(self.save_to_dir, fname))
         
         batch_z = np.zeros((len(batch_x), self.num_tokens+1),dtype= self.dtype)
-
-        for i, cap in enumerate([self.captions[j] for j in index_array]):
-            img_cap_tokens = cap.strip().split()
-            for z in img_cap_tokens:
-                token_idx = self.caption_token_vocab.get(z,self.num_tokens)
-                batch_z[i,token_idx] = 1.
+        if self.captions is not None:
+            for i, cap in enumerate([self.captions[j] for j in index_array]):
+                img_cap_tokens = cap.strip().split()
+                for z in img_cap_tokens:
+                    token_idx = self.caption_token_vocab.get(z,self.num_tokens)
+                    batch_z[i,token_idx] = 1.
         # build batch of labels
         if self.class_mode == 'input':
             batch_y = batch_x.copy()
@@ -448,11 +452,15 @@ class DataFramewithMultiModalInputIterator(Iterator):
                 batch_y[i, label] = 1.
         elif self.class_mode == 'other':
             batch_y = self.data[index_array]
+        elif self.captions is None:
+            return [batch_x]
         else:
             return [batch_x,batch_z]
 
-
-        return [batch_x,batch_z], batch_y
+        if self.captions is None:
+            return [batch_x], batch_y
+        else:
+            return [batch_x,batch_z], batch_y
     def _list_valid_filepaths(self, white_list_formats):
 
         def get_ext(filename):

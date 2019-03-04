@@ -288,9 +288,11 @@ if __name__ == '__main__':
     test_datagen = None
     if args.image_only_model:
         if args.dataaug:
-            test_datagen = IDG(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+            #test_datagen = IDG(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
+            test_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
         else:
-            test_datagen = IDG()
+            test_datagen = datagen()
+            #test_datagen = IDG()
     else:
         if args.dataaug:
             test_datagen = datagen(width_shift_range = 0.2,zoom_range=0.2,rotation_range=25, height_shift_range=0.3 )
@@ -301,7 +303,7 @@ if __name__ == '__main__':
         test_data_it = test_datagen.flow_from_dataframe( 
                                                         dataframe= test_df,
                                                         directory= None,
-                                                        x_col="filenames", y_col="class", has_ext=True,
+                                                        x_col=["filenames"], y_col="class", has_ext=True,
                                                         target_size=(256, 256), color_mode='rgb',
                                                         class_mode='sparse',
                                                         batch_size=batch_size, shuffle=False, seed=None,
@@ -311,6 +313,7 @@ if __name__ == '__main__':
                                                         subset=None,
                                                         interpolation='nearest',
                                                         sort=False,
+                                                        num_tokens = len(word_index),
                                                         follow_links= True)
     else:
         test_data_it = test_datagen.flow_from_dataframe( 
